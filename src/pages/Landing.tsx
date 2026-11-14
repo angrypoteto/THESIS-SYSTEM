@@ -71,7 +71,7 @@ export function Landing() {
     <>
       {/* faint Mandaluyong aerial photo behind the hero (CSS var so the GitHub Pages base path is respected) */}
       <div className="hero-band has-photo"
-        style={{ margin: '-28px calc(50% - 50vw) 0', '--hero-bg': `url(${import.meta.env.BASE_URL}images/mandaluyong-city.jpg)` } as React.CSSProperties}>
+        style={{ margin: '-28px calc(50% - 50vw) 0', '--hero-bg': `url(${new URL('images/mandaluyong-city.jpg', document.baseURI).href})` } as React.CSSProperties}>
         <div className="hero-inner">
           <div>
             <PartnerLockup size={60} onDark />
