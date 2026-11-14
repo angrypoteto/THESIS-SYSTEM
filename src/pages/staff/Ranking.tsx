@@ -24,7 +24,7 @@ function kendall(a: Map<string, number>, b: Map<string, number>): number | null 
 
 /** Design screen 8. */
 export function Ranking() {
-  const { cycle } = useStaff()
+  const { cycle, reloadCycles } = useStaff()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const [runs, setRuns] = useState<Run[]>([])
@@ -142,7 +142,7 @@ export function Ranking() {
       {results.length > 0 && (
         <div className="grid four" style={{ marginBottom: 0 }}>
           <div className="stat"><div className="stat-value">{recommended.length} of {results.length}</div><div className="stat-label">Recommended for a slot</div></div>
-          <div className="stat"><div className="stat-value">PHP {total.toLocaleString()}</div><div className="stat-label">Allowances per release</div></div>
+          {total > 0 && <div className="stat"><div className="stat-value">PHP {total.toLocaleString()}</div><div className="stat-label">Allowances per release</div></div>}
           <div className="stat"><div className="stat-value">{tau == null ? '—' : tau.toFixed(2)}</div><div className="stat-label">Kendall τ vs SAW baseline</div></div>
         </div>
       )}
@@ -150,7 +150,7 @@ export function Ranking() {
       <div className="table-wrap">
         <table className="table" style={{ minWidth: 900 }}>
           <thead>
-            <tr><th>Rank</th><th>Applicant</th><th>Closeness</th><th>Income / person</th><th>SES</th><th>Household</th><th>GWA</th><th>Distance</th><th>Allowance</th></tr>
+            <tr><th>Rank</th><th>Applicant</th><th>Closeness</th><th>Income / person</th><th>SES</th><th>Household</th><th>GWA</th><th>Distance</th><th>Selection</th></tr>
           </thead>
           <tbody>
             {results.map((r, i) => (
@@ -160,7 +160,7 @@ export function Ranking() {
           </tbody>
         </table>
       </div>
-      {hasOfficial && cycleId != null && <Waitlist cycleId={cycleId} slots={slots} />}
+      {hasOfficial && cycleId != null && <Waitlist cycleId={cycleId} slots={slots} isAdmin={isAdmin} finalizedAt={cycle?.selection_finalized_at ?? null} onFinalized={reloadCycles} />}
 
       <p className="small muted" style={{ margin: 0 }}>Ties are broken by lower income per person, then higher GWA, then earlier submission. The whole pool is ranked in one stored run, so the order is reproducible.</p>
     </>
@@ -180,7 +180,7 @@ function RowWithLine({ r, showLine }: { r: Result; showLine: boolean }) {
         <td>{v.C3 ?? '—'}</td>
         <td>{v.C4 != null ? `${v.C4}%` : '—'}</td>
         <td>{v.C5 != null ? `${v.C5} km` : '—'}</td>
-        <td>{r.recommended ? (r.pay_tier_amount ? `PHP ${Number(r.pay_tier_amount).toLocaleString()}` : '—') : 'Waitlist'}</td>
+        <td>{r.recommended ? (r.pay_tier_amount ? `PHP ${Number(r.pay_tier_amount).toLocaleString()}` : 'Within the slots') : 'Waitlist'}</td>
       </tr>
       {showLine && <tr className="slot-line"><td colSpan={9}><div>Slot line. Applicants below are waitlisted in rank order.</div></td></tr>}
     </>
@@ -188,7 +188,9 @@ function RowWithLine({ r, showLine }: { r: Result; showLine: boolean }) {
 }
 
 /** After the official ranking: open slots (slots minus approved) and promotion of the best-ranked waitlisted applicant. */
-function Waitlist({ cycleId, slots }: { cycleId: number; slots: number }) {
+function Waitlist({ cycleId, slots, isAdmin, finalizedAt, onFinalized }: { cycleId: number; slots: number; isAdmin: boolean; finalizedAt: string | null; onFinalized: () => void }) {
+  const [ranked, setRanked] = useState<number | null>(null)
+  const [confirm, setConfirm] = useState(false)
   const [approved, setApproved] = useState<number | null>(null)
   const [waiting, setWaiting] = useState<number | null>(null)
   const [reason, setReason] = useState('')
@@ -196,10 +198,12 @@ function Waitlist({ cycleId, slots }: { cycleId: number; slots: number }) {
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
 
   const load = useCallback(async () => {
-    const [a, w] = await Promise.all([
+    const [a, w, rk] = await Promise.all([
       supabase.from('applications').select('id', { count: 'exact', head: true }).eq('cycle_id', cycleId).eq('status', 'approved'),
       supabase.from('applications').select('id', { count: 'exact', head: true }).eq('cycle_id', cycleId).eq('status', 'waitlisted'),
+      supabase.from('applications').select('id', { count: 'exact', head: true }).eq('cycle_id', cycleId).eq('status', 'ranked'),
     ])
+    setRanked(rk.count ?? 0)
     setApproved(a.count ?? 0)
     setWaiting(w.count ?? 0)
   }, [cycleId])
@@ -220,10 +224,42 @@ function Waitlist({ cycleId, slots }: { cycleId: number; slots: number }) {
     return data
   }
 
+  async function finalize() {
+    setBusy(true)
+    setMsg(null)
+    const { data, error } = await supabase.rpc('finalize_selection', { p_cycle: cycleId })
+    setBusy(false)
+    setConfirm(false)
+    if (error) return setMsg({ kind: 'error', text: error.message })
+    const d = data as { approved: number; waitlisted: number }
+    setMsg({ kind: 'ok', text: `Final selection done: ${d.approved} approved, ${d.waitlisted} waitlisted. Everyone was emailed.` })
+    load()
+    onFinalized()
+  }
+
   const open = approved == null ? null : Math.max(0, slots - approved)
   return (
     <section className="card" aria-labelledby="waitlist">
-      <h2 id="waitlist">Slots and waitlist</h2>
+      <h2 id="waitlist">Final selection</h2>
+      {!finalizedAt && (
+        <div className="banner info" style={{ marginBottom: 12 }}>
+          The system selects the final beneficiaries from this ranking: the top-ranked applicants up to the {slots} slots are approved,
+          the rest are waitlisted, and everyone is emailed. {ranked ?? '…'} ranked applicant{ranked === 1 ? '' : 's'} waiting.
+          {isAdmin ? (
+            <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              {confirm ? (
+                <>
+                  <button className="btn btn-danger-outline" disabled={busy} onClick={finalize}>Yes, select and email everyone</button>
+                  <button type="button" className="btn-danger-link" onClick={() => setConfirm(false)}>Cancel</button>
+                </>
+              ) : (
+                <button className="btn" disabled={busy || !ranked} onClick={() => setConfirm(true)}>Finalize selection…</button>
+              )}
+            </div>
+          ) : <> An admin finalizes the selection.</>}
+        </div>
+      )}
+      {finalizedAt && <p className="small muted" style={{ marginTop: 0 }}>Selection finalized {new Date(finalizedAt).toLocaleString('en-PH')}. A slot freed by a withdrawal goes to the next on the waitlist automatically. A change to one applicant needs a written reason on their file and is logged as an override.</p>}
       <p style={{ marginTop: 0 }}>
         <strong>{approved ?? '…'}</strong> of {slots} slots approved · <strong>{open ?? '…'}</strong> open · <strong>{waiting ?? '…'}</strong> on the waitlist
       </p>

@@ -85,7 +85,7 @@ export function ApplicantFile() {
           <h1>{p?.full_name}</h1>
           <p>
             {p?.student_number} · {app.applicants?.course ?? '—'}, incoming year {app.applicants?.year_level ?? '—'} · {app.applicants?.schools?.name ?? '—'} ·{' '}
-            {app.applicants?.barangays?.name ?? '—'} · step {app.stage}{app.exam_result ? ` · exam ${app.exam_result}` : ''}
+            {app.applicants?.barangays?.name ?? '—'} · step {app.stage}{app.applicant_no ? ` · ${app.applicant_no}` : ''}{app.exam_score != null ? ` · exam ${app.exam_score}%, combined ${Number(app.combined_score).toFixed(2)}%${app.academic_rank ? ` (academic rank ${app.academic_rank})` : ''}` : app.exam_result ? ` · exam ${app.exam_result}` : ''}
             {app.household_size ? ` · household of ${app.household_size}` : ''}
           </p>
         </div>

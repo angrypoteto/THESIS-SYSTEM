@@ -47,7 +47,7 @@ const STAGE_STEPS: Record<1 | 2, StepKey[]> = {
   // step 1 = the office's online application; step 2 = its Scholar / Grantee Information Sheet, plus what the
   // ranking needs (household, living conditions, home pin) and the step 2 documents
   1: ['school', 'documents', 'submit'],
-  2: ['info', 'education', 'household', 'living', 'location', 'documents', 'submit'],
+  2: ['info', 'education', 'household', 'living', 'documents', 'submit'],
 }
 
 export function ApplicationPage() {
@@ -196,7 +196,7 @@ export function ApplicationPage() {
           <Link to="/profile">Update your profile</Link>
         </p>
       )}
-      {stage === 2 && <p className="banner info">You passed the qualifying exam. Complete your household, income, living conditions, home location and the step 2 documents.</p>}
+      {stage === 2 && <p className="banner info">You qualified to proceed{data.app.applicant_no ? ` (Applicant ID ${data.app.applicant_no})` : ''}. Complete your household, income, living conditions and the step 2 documents.</p>}
       {readOnly && <p className="banner warn">{stage === 1 ? 'The application period is closed' : 'The step 2 deadline has passed'}; this draft can no longer be edited.</p>}
       <div className="form-layout">
         <nav className="step-list" aria-label="Application steps">

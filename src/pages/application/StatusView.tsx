@@ -41,8 +41,8 @@ const STATUS_TEXT: Record<ApplicationStatus, string> = {
   eligible: 'Eligible – waiting for the ranking',
   ineligible: 'Not eligible (see reasons below)',
   exam_eligible: 'Eligible for the qualifying exam – take it at RTU; the office will record your result',
-  exam_failed: 'Did not pass the qualifying exam this cycle',
-  ranked: 'Ranked – waiting for the final decision',
+  exam_failed: 'Did not qualify to proceed after the qualifying exam this cycle',
+  ranked: 'Ranked – waiting for the final selection',
   approved: 'Approved',
   waitlisted: 'Waitlisted',
   not_selected: 'Not selected this cycle',
@@ -50,7 +50,7 @@ const STATUS_TEXT: Record<ApplicationStatus, string> = {
 }
 
 /** client flow v2: step 1 -> qualifying exam -> step 2 -> ranking -> decision */
-const MILESTONES = ['Step 1 submitted', 'Cleared for the exam', 'Passed the exam', 'Step 2 submitted', 'Eligible for ranking', 'Ranked', 'Decision']
+const MILESTONES = ['Step 1 submitted', 'Cleared for the exam', 'Qualified to proceed', 'Step 2 submitted', 'Eligible for ranking', 'Ranked', 'Decision']
 
 function milestoneReached(stage: number, status: ApplicationStatus): number {
   if (stage === 1) return status === 'exam_eligible' || status === 'exam_failed' ? 1 : 0
@@ -105,6 +105,13 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
       <h1>My application</h1>
       <section className="card">
         <p className="pill ok">{STATUS_TEXT[app.status]}</p>
+        {app.applicant_no && <p style={{ margin: '8px 0 0' }}>Applicant ID: <strong>{app.applicant_no}</strong></p>}
+        {app.combined_score != null && (
+          <p className="small muted" style={{ margin: '4px 0 0' }}>
+            Exam {app.exam_score}% × 70% + GWA {app.gwa_converted}% × 30% = combined result <strong>{Number(app.combined_score).toFixed(2)}%</strong>
+            {app.academic_rank ? ` · academic rank ${app.academic_rank}` : ''}
+          </p>
+        )}
         <p className="muted">
           {app.stage === 2 ? 'Step 2' : 'Step 1'} submitted {app.submitted_at ? new Date(app.submitted_at).toLocaleString('en-PH') : '—'}
           {app.household_size ? ` · household of ${app.household_size}` : ''} · GWA {app.gwa_converted ?? app.gwa_declared}
@@ -149,7 +156,7 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
             You passed the initial screening. The exam is given on paper at RTU
             {cycle.exam_at ? <> on <strong>{new Date(cycle.exam_at).toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })}</strong></> : ' (the date will be announced)'}
             {cycle.exam_venue ? <> at <strong>{cycle.exam_venue}</strong></> : ''}. Bring a valid ID. The office records your result here,
-            and if you pass you will be asked for the step 2 requirements. The schedule and your result are also emailed to you (check Spam if you do not see them).
+            and applicants are ranked on 70% exam score + 30% GWA. Those who qualify to proceed get an Applicant ID and are asked for the step 2 requirements. The schedule and your result are also emailed to you (check Spam if you do not see them).
           </p>
         </section>
       )}

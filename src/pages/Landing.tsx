@@ -11,9 +11,9 @@ const fmtDateTime = (d: string) => new Date(d).toLocaleString('en-PH', { dateSty
 
 const STEPS: [string, string][] = [
   ['Step 1: initial screening', 'Create an account, enter your GWA, and upload your RTU COR and grades (IER, or SHS Form 138 if you are an incoming 1st year). Staff check them; nothing is rejected automatically.'],
-  ['Qualifying exam at RTU', 'If you pass the screening, you take the qualifying exam on paper at RTU. The office records your result in the portal.'],
-  ['Step 2: requirements', 'If you pass the exam, add your household, income and living conditions, pin your home on the map, and upload the step 2 documents.'],
-  ['Ranking and decision', 'Eligible applicants are ranked by need and grades. Office staff review the ranking and decide; you are notified with the reasons.'],
+  ['Qualifying exam at RTU', 'If you pass the screening, you take the qualifying exam for your course at RTU. Your exam score counts for 70% and your grades (GWA) for 30%. Applicants are ranked on this combined result.'],
+  ['Step 2: requirements', 'The top-ranked applicants proceed and are emailed an official Applicant ID. They add their household, income and living conditions, and upload the step 2 documents.'],
+  ['Ranking and final selection', 'Applicants who complete step 2 are ranked by need and grades, and the scholars are selected from that ranking up to the available slots. You are notified by email.'],
 ]
 
 const CRITERIA: [string, string][] = [
@@ -21,12 +21,12 @@ const CRITERIA: [string, string][] = [
   ['Living conditions', 'Housing, water, electricity, appliances, and your parents’ education and work. Income is not counted again here.'],
   ['Household size', 'How many people live and eat with you.'],
   ['Grades', 'Your general weighted average, converted from RTU’s 1.00 to 5.00 scale (1.00 is highest).'],
-  ['Distance to RTU', 'Road distance from your home to RTU, from the pin you place on the map.'],
 ]
 
 const FAQ: [string, string][] = [
   ['I am an incoming 1st year. I have no IER yet.', 'Upload your Senior High School report card (Form 138) instead. Incoming 2nd years upload their RTU IER.'],
   ['Where and when is the qualifying exam?', 'RTU gives the exam on paper. The date and venue appear on this page and in your account once the office sets them.'],
+  ['When do I get an Applicant ID?', 'After the exam. Only applicants who qualify to proceed receive an official Applicant ID (for example MESO-2026-00125) by email. You keep signing in with your email and password.'],
   ['Our income is above PHP 250,000 a year. Can I still apply?', 'Yes. The application is not rejected automatically; an evaluator reviews it, for example when the household includes extended family.'],
   ['One of my parents has passed away or is not with us.', 'Upload what you have and add a note. A staff member reviews it and can clear the voter-certificate requirement with a written reason.'],
   ['Someone in my family is sick or has a disability.', 'Tick "Ill / PWD" for that person in the household list. You will be asked for a medical certificate, and the office takes it into account.'],
@@ -86,14 +86,6 @@ export function Landing() {
               upload your documents, take the qualifying exam at RTU, and follow your application until the result.
             </p>
             <div className="actions" style={{ marginTop: 0 }}>{ctaButtons(true)}</div>
-            <div className="tier-strip" aria-label="Allowance by grade">
-              <span className="tier-strip-title">Allowance per release</span>
-              {(cycle?.pay_tiers ?? [{ min_gwa: 81, max_gwa: 86.99, amount: 4000 }, { min_gwa: 87, max_gwa: 100, amount: 6000 }]).map((t) => (
-                <span className="tier-chip" key={t.min_gwa}>
-                  GWA {t.min_gwa}%{t.max_gwa >= 100 ? '+' : `–${Math.floor(t.max_gwa)}%`} <b>PHP {t.amount.toLocaleString()}</b>
-                </span>
-              ))}
-            </div>
           </div>
           {/* Mandaluyong and RTU photos overlap: the city and the university behind one program */}
           <div className="hero-photos">
@@ -197,7 +189,7 @@ export function Landing() {
       <section className="card" aria-labelledby="ranking">
         <h2 id="ranking">How applicants are ranked</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Everyone who passes the exam and the eligibility checks is compared on the same five criteria. The weight of each
+          Everyone who proceeds after the exam and passes the eligibility checks is compared on the same four criteria. The weight of each
           criterion is set by the office. Students with greater need rank higher, and grades also count.
         </p>
         <div className="criteria-grid">
