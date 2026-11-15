@@ -130,7 +130,7 @@ export function DocumentCheck() {
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head sticky-head">
         <div>
           <Link to={`/staff/applicants/${doc.application_id}`} className="back">← Back to the applicant</Link>
           <h1>{labelDoc(doc.type_code).replace(/^./, (c) => c.toUpperCase())} · {a?.profiles?.full_name}</h1>
@@ -180,9 +180,12 @@ export function DocumentCheck() {
             )}
             {ocrMsg && <p className="error" role="alert">{ocrMsg}</p>}
             {doc.type_code !== 'photo_2x2' && (
-              <button className="btn btn-outline btn-block" style={{ marginTop: 12 }} disabled={ocrBusy} onClick={runOcr}>
-                {ocrBusy ? 'Reading… (a sleeping service can take up to a minute)' : read.length ? 'Read again' : 'Read with OCR'}
+              <button aria-busy={ocrBusy} className="btn btn-outline btn-block" style={{ marginTop: 12 }} disabled={ocrBusy} onClick={runOcr}>
+                {ocrBusy ? 'Reading…' : read.length ? 'Read again' : 'Read with OCR'}
               </button>
+            )}
+            {ocrBusy && (
+              <p className="small muted busy-note" role="status">Reading the document. If the reading service was asleep, this can take up to a minute.</p>
             )}
           </section>
 

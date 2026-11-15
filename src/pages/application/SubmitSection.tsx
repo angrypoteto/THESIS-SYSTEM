@@ -85,7 +85,7 @@ export function SubmitSection({ data, readOnly, reload }: SectionProps) {
       )}
       {!readOnly && (
         <div className="save-bar">
-          <button className="button" disabled={!ready || !signed || busy} onClick={submit}>
+          <button aria-busy={busy} className="button" disabled={!ready || !signed || busy} onClick={submit}>
             {busy ? 'Submitting…' : 'Submit application'}
           </button>
           {!ready && <span className="muted">Complete the items marked ○ first.</span>}

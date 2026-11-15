@@ -182,7 +182,7 @@ export function ExamResults() {
               {parsed.bad.length > 0 && <span className="error"> · {parsed.bad.length} not understood: {parsed.bad.slice(0, 3).join(' | ')}</span>}
             </p>
           )}
-          <button className="btn btn-lg" disabled={busy === 'import' || parsed.rows.length === 0} onClick={runImport}>
+          <button aria-busy={busy === 'import'} className="btn btn-lg" disabled={busy === 'import' || parsed.rows.length === 0} onClick={runImport}>
             {busy === 'import' ? 'Recording…' : `Record ${parsed.rows.length || ''} line${parsed.rows.length === 1 ? '' : 's'}`}
           </button>
           {summary && (

@@ -66,7 +66,7 @@ export function SignIn() {
           </p>
         )}
         <p className="auth-inline-link"><Link to="/forgot-password">Forgot password?</Link></p>
-        <button className="btn btn-lg btn-block" disabled={busy}>
+        <button aria-busy={busy} className="btn btn-lg btn-block" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="auth-switch">

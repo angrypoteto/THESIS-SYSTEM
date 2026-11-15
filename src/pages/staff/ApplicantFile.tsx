@@ -50,7 +50,10 @@ export function ApplicantFile() {
     setGates((g.data as Gate[]) ?? [])
     setPred((p.data?.[0] as Prediction) ?? null)
     const weights = ((w.data as { criteria_weights: { criterion_code: string; weight: number }[] } | null)?.criteria_weights) ?? []
-    setCriteria(((c.data as CriterionRow[]) ?? []).map((x) => ({ ...x, weight: weights.find((y) => y.criterion_code === x.code)?.weight ?? null })))
+    // weights are shown as the ranking uses them: rescaled over the active criteria so they add up to 1
+    const active = ((c.data as CriterionRow[]) ?? []).map((x) => ({ ...x, weight: weights.find((y) => y.criterion_code === x.code)?.weight ?? null }))
+    const total = active.reduce((t, x) => t + Number(x.weight ?? 0), 0)
+    setCriteria(active.map((x) => ({ ...x, weight: x.weight != null && total > 0 ? Math.round((Number(x.weight) / total) * 1000) / 1000 : x.weight })))
     setValues((v.data as Record<string, number | null>) ?? {})
     setResult((r.data?.[0] as unknown as ResultRow) ?? null)
     setEvals((e.data as unknown as Evaluation[]) ?? [])
@@ -79,7 +82,7 @@ export function ApplicantFile() {
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head sticky-head">
         <div>
           <Link to="/staff" className="back">← Back to queue</Link>
           <h1>{p?.full_name}</h1>
@@ -139,7 +142,7 @@ export function ApplicantFile() {
               </p>
             )}
             {app.stage === 2 && app.status !== 'draft' && (
-              <button className={`btn ${pred ? 'btn-plain' : ''}`} style={{ marginTop: 12 }} disabled={busy}
+              <button aria-busy={busy} className={`btn ${pred ? 'btn-plain' : ''}`} style={{ marginTop: 12 }} disabled={busy}
                 onClick={() => act(async () => {
                   const { error } = await supabase.functions.invoke('ml-score', { body: { application_id: app.id } })
                   if (!error) return { error: null }
@@ -148,8 +151,11 @@ export function ApplicantFile() {
                   const body = ctx ? await ctx.json().catch(() => null) : null
                   return { error: { message: body?.error ?? error.message } }
                 }, 'Need estimate saved.')}>
-                {busy ? 'Working… (a sleeping service can take up to a minute)' : pred ? 'Estimate again' : 'Get need estimate'}
+                {busy ? 'Estimating…' : pred ? 'Estimate again' : 'Get need estimate'}
               </button>
+            )}
+            {busy && (
+              <p className="small muted busy-note" role="status">Working. If the estimating service was asleep, this can take up to a minute.</p>
             )}
           </section>
 

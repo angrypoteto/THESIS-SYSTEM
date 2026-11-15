@@ -105,7 +105,7 @@ export function Cycles() {
         <button className="btn btn-plain" onClick={() => { setEditing('new'); setMsg(null) }}>+ New cycle</button>
       </div>
 
-      <div className="grid two">
+      <div className="grid two grid-top">
         <section className="card">
           <h2>Cycles</h2>
           <ul className="checklist">
@@ -161,7 +161,7 @@ export function Cycles() {
             </select>
           </label>
           {msg && <p className={msg.ok ? 'ok-text' : 'error'} role="status">{msg.text}</p>}
-          <button className="btn btn-lg" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save cycle'}</button>
+          <button aria-busy={busy} className="btn btn-lg" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save cycle'}</button>
         </section>
       </div>
     </>

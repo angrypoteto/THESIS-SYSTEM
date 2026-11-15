@@ -57,7 +57,7 @@ export function AuditLog() {
             <h2 style={{ margin: 0 }}>{chain == null ? 'Checking…' : chain.first_broken_id ? `Chain broken at entry ${chain.first_broken_id}` : 'Chain intact'}</h2>
             <p style={{ margin: 0 }}>{chain ? `${chain.rows_checked.toLocaleString()} entries checked just now` : ''}</p>
           </div>
-          <button className="btn btn-lg" disabled={checking} onClick={verify}>{checking ? 'Checking…' : 'Verify now'}</button>
+          <button aria-busy={checking} className="btn btn-lg" disabled={checking} onClick={verify}>{checking ? 'Checking…' : 'Verify now'}</button>
         </section>
         <section className="card">
           <h2>Latest fingerprint</h2>

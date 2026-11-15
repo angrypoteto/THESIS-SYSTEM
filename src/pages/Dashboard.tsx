@@ -14,7 +14,7 @@ export function Dashboard() {
 
 interface ApplicantRow { school_id: number | null; barangay_id: number | null; course: string | null; year_level: number | null }
 interface AppRow {
-  id: string; status: string; submitted_at: string | null; cycle_id: number
+  id: string; status: string; submitted_at: string | null; cycle_id: number; applicant_no: string | null
   documents: { type_code: string; verification_status: string; is_current: boolean }[]
 }
 interface Note { id: number; title: string; body: string; created_at: string; read_at: string | null }
@@ -51,7 +51,7 @@ function ApplicantHome() {
       setCycle(cyc)
       setNotes((n.data as Note[]) ?? [])
       if (cyc) {
-        const r = await supabase.from('applications').select('id,status,submitted_at,cycle_id,documents(type_code,verification_status,is_current)').eq('cycle_id', cyc.id).maybeSingle()
+        const r = await supabase.from('applications').select('id,status,submitted_at,cycle_id,applicant_no,documents(type_code,verification_status,is_current)').eq('cycle_id', cyc.id).maybeSingle()
         if (live) setApp(r.data as AppRow | null)
       }
       // opening the dashboard marks messages as read
@@ -84,7 +84,8 @@ function ApplicantHome() {
           <p>{cycle ? `${cycle.term}, S.Y. ${cycle.school_year}` : ''}</p>
           <h1>Welcome, {profile?.full_name.split(' ')[0] || 'applicant'}</h1>
         </div>
-        {app && <span className="pill info">Application {app.id.slice(0, 8).toUpperCase()}</span>}
+        {/* the official Applicant ID exists only after the applicant qualifies to proceed (client, 2026-11-15) */}
+        {app?.applicant_no && <span className="pill info">Applicant ID {app.applicant_no}</span>}
       </div>
 
       {app && app.status !== 'draft' && (

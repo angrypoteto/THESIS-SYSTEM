@@ -33,7 +33,7 @@ export function useSave(): SaveState {
 export function SaveBar({ state, onSave, label = 'Save' }: { state: SaveState; onSave: () => void; label?: string }) {
   return (
     <div className="save-bar">
-      <button className="button" onClick={onSave} disabled={state.busy}>
+      <button aria-busy={state.busy} className="button" onClick={onSave} disabled={state.busy}>
         {state.busy ? 'Saving…' : label}
       </button>
       {state.message && (

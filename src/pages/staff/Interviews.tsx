@@ -164,7 +164,7 @@ export function Interviews() {
             {ordered.slice(0, 6).map((r, k) => `${r.full_name}: ${preview[k]}`).join(' · ')}{ordered.length > 6 ? ` · and ${ordered.length - 6} more` : ''}
           </p>
         )}
-        <button className="btn btn-lg" disabled={busy === 'schedule' || ordered.length === 0 || !start} onClick={schedule}>
+        <button aria-busy={busy === 'schedule'} className="btn btn-lg" disabled={busy === 'schedule' || ordered.length === 0 || !start} onClick={schedule}>
           {busy === 'schedule' ? 'Scheduling…' : `Schedule ${ordered.length || ''} interview${ordered.length === 1 ? '' : 's'} and email them`}
         </button>
       </section>

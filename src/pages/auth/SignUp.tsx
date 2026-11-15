@@ -191,7 +191,7 @@ export function SignUp() {
             ))}
           </ul>
         )}
-        <button className="btn btn-lg btn-block" disabled={busy}>
+        <button aria-busy={busy} className="btn btn-lg btn-block" disabled={busy}>
           {busy ? 'Creating account…' : 'Create account'}
         </button>
         <p className="auth-switch">
