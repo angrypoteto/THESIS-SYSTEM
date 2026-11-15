@@ -49,6 +49,12 @@ const STATUS_TEXT: Record<ApplicationStatus, string> = {
   withdrawn: 'Withdrawn',
 }
 
+/** pill colour: green only for good news, amber when the applicant must wait or act, grey for a closed outcome */
+const PILL_TONE: Partial<Record<ApplicationStatus, string>> = {
+  submitted: 'info', eligible: 'info', ranked: 'info', exam_eligible: 'ok', approved: 'ok',
+  under_review: 'warn', waitlisted: 'warn',
+}
+
 /** client flow v2: step 1 -> qualifying exam -> step 2 -> ranking -> decision */
 const MILESTONES = ['Step 1 submitted', 'Cleared for the exam', 'Qualified to proceed', 'Step 2 submitted', 'Eligible for ranking', 'Ranked', 'Decision']
 
@@ -74,6 +80,8 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
   const [gates, setGates] = useState<Gate[]>([])
   const [result, setResult] = useState<Result | null>(null)
   const [interview, setInterview] = useState<Interview | null>(null)
+  const [reason, setReason] = useState<string | null>(null)
+  const [waitPos, setWaitPos] = useState<number | null>(null)
 
   useEffect(() => {
     supabase
@@ -95,16 +103,28 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
       .eq('status', 'scheduled')
       .maybeSingle()
       .then(({ data }) => setInterview(data as Interview | null))
-  }, [app.id])
+    // the reason recorded with the latest decision (applicants can read their own)
+    supabase
+      .from('evaluations')
+      .select('remarks,decision')
+      .eq('application_id', app.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => setReason((data?.[0] as { remarks: string | null } | undefined)?.remarks ?? null))
+    if (app.status === 'waitlisted') {
+      supabase.rpc('waitlist_position', { p_app: app.id }).then(({ data }) => setWaitPos((data as number | null) ?? null))
+    }
+  }, [app.id, app.status])
 
   const reached = milestoneReached(app.stage ?? 1, app.status)
-  const failedAt = app.status === 'exam_failed' ? 2 : app.status === 'ineligible' ? reached + 1 : -1
+  const failedAt = app.status === 'exam_failed' ? 2 : app.status === 'ineligible' ? reached + 1 : app.status === 'not_selected' ? 6 : -1
+  const take = cycle.step2_slots ?? cycle.slots
 
   return (
     <>
       <h1>My application</h1>
       <section className="card">
-        <p className="pill ok">{STATUS_TEXT[app.status]}</p>
+        <p className={`pill ${PILL_TONE[app.status] ?? ''}`}>{STATUS_TEXT[app.status]}</p>
         {app.applicant_no && <p style={{ margin: '8px 0 0' }}>Applicant ID: <strong>{app.applicant_no}</strong></p>}
         {app.combined_score != null && (
           <p className="small muted" style={{ margin: '4px 0 0' }}>
@@ -119,7 +139,7 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
         </p>
         <ol className="timeline">
           {MILESTONES.map((s, i) => (
-            <li key={s} className={i === failedAt ? 'failed' : reached >= i ? 'done' : ''}>
+            <li key={s} className={i === failedAt ? 'failed' : i === 6 && app.status === 'waitlisted' ? 'attention' : reached >= i ? 'done' : ''}>
               {s}
             </li>
           ))}
@@ -178,17 +198,7 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
         </section>
       )}
 
-      {result && (
-        <section className="card">
-          <h2>Result</h2>
-          <p>
-            Rank <strong>#{result.rank}</strong>
-            {result.recommended ? ' — recommended for a slot' : ' — outside the available slots'}
-            {result.pay_tier_amount ? ` · allowance PHP ${Number(result.pay_tier_amount).toLocaleString()}` : ''}
-          </p>
-          <p className="muted small">The Educational Service Office makes the final decision. You may ask the office why you were or were not selected.</p>
-        </section>
-      )}
+      <Outcome app={app} result={result} reason={reason} waitPos={waitPos} take={take} slots={cycle.slots} />
 
       {gates.length > 0 && (
         <section className="card">
@@ -222,5 +232,75 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
         </table>
       </section>
     </>
+  )
+}
+
+/** Plain-language result for each closed or waiting outcome: what happened, why, and what happens next. */
+function Outcome({ app, result, reason, waitPos, take, slots }: {
+  app: AppData['app']; result: Result | null; reason: string | null; waitPos: number | null; take: number; slots: number
+}) {
+  const rank = result ? <>Your rank in the final ranking is <strong>#{result.rank}</strong>. </> : null
+  const why = reason ? <p className="small"><strong>Reason recorded by the office:</strong> {reason}</p> : null
+  let title: string
+  let body: React.ReactNode
+  switch (app.status) {
+    case 'approved':
+      title = 'You were selected'
+      body = <>
+        <p style={{ marginTop: 0 }}>Congratulations. {rank}You are within the {slots} slots of this cycle{app.category ? <> as a <strong>{app.category}</strong></> : ''}.</p>
+        <p className="small muted">The office will email you the next steps, such as the orientation. Keep your contact details in your profile up to date.</p>
+      </>
+      break
+    case 'waitlisted':
+      title = 'You are on the waitlist'
+      body = <>
+        <p style={{ marginTop: 0 }}>
+          {rank}All {slots} slots of this cycle are filled.{waitPos ? <> Your place on the waitlist is <strong>{waitPos}</strong>.</> : ''}
+        </p>
+        <p className="small muted">If a selected scholar gives up a slot, it goes to the next person on the waitlist in rank order, and you are emailed right away. You do not need to do anything.</p>
+        {why}
+      </>
+      break
+    case 'not_selected':
+      title = 'You were not selected this cycle'
+      body = <>
+        <p style={{ marginTop: 0 }}>{rank}Thank you for applying. Your application was not selected for this cycle.</p>
+        {why}
+        <p className="small muted">You may ask the Mandaluyong Educational Service Office about this result, and you are welcome to apply again in a future cycle.</p>
+      </>
+      break
+    case 'exam_failed':
+      title = app.exam_result === 'absent' ? 'You did not take the qualifying exam' : 'You did not qualify to proceed'
+      body = app.exam_result === 'absent' ? <>
+        <p style={{ marginTop: 0 }}>The office&rsquo;s record shows you were not able to take the qualifying exam, so your application cannot continue this cycle.</p>
+        <p className="small muted">If this record is wrong, contact the Mandaluyong Educational Service Office as soon as possible. You may apply again in a future cycle.</p>
+      </> : <>
+        <p style={{ marginTop: 0 }}>
+          Applicants are ranked on 70% exam score + 30% GWA, and the top {take} proceed to step 2.
+          {app.academic_rank ? <> Your rank was <strong>#{app.academic_rank}</strong>{app.combined_score != null ? <> with a combined result of <strong>{Number(app.combined_score).toFixed(2)}%</strong></> : ''}.</> : ''}
+        </p>
+        <p className="small muted">Thank you for taking part. You are welcome to apply again in a future cycle.</p>
+      </>
+      break
+    case 'ineligible':
+      title = 'Your application did not pass the eligibility checks'
+      body = <p style={{ margin: 0 }}>The checks marked ✗ below show what was not met. If you think one is wrong, contact the Mandaluyong Educational Service Office; a staff member can review it.</p>
+      break
+    case 'withdrawn':
+      title = 'Your application was withdrawn'
+      body = <p style={{ margin: 0 }}>This application is closed. If you did not ask for this, contact the Mandaluyong Educational Service Office as soon as possible.</p>
+      break
+    case 'ranked':
+      title = 'You are in the final ranking'
+      body = <p style={{ margin: 0 }}>{rank}The final beneficiaries are selected from this ranking up to the {slots} slots. You will be emailed the result.</p>
+      break
+    default:
+      return null
+  }
+  return (
+    <section className="card" aria-labelledby="outcome">
+      <h2 id="outcome">{title}</h2>
+      {body}
+    </section>
   )
 }
