@@ -253,6 +253,8 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 .form label, .field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px; }
 /* fields stacked directly under another field or a row of fields get breathing room (the hint of one no longer touches the next label) */
 .field + .field, .row + .field, .field + .row, .row + .row { margin-top: 14px; }
+/* ...but not fields side by side in one row: those must start at the same height */
+.row > .field, .row > label, .row > div { margin-top: 0; }
 .card > .field + .btn, .card > .row + .btn, .card > .field + .button { margin-top: 14px; }
 .form label.check, .check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; }
 .check input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
