@@ -31,11 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
+    ;(async () => {
+      // reset link from the password-reset function: <portal>?token_hash=...&type=recovery#/reset-password
+      const q = new URLSearchParams(window.location.search)
+      const tokenHash = q.get('token_hash')
+      if (tokenHash && q.get('type') === 'recovery') {
+        window.history.replaceState(null, '', window.location.pathname + '#/reset-password') // the token never stays in the address bar
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+        if (!error) setRecovering(true)
+      }
+      const { data } = await supabase.auth.getSession()
       setSession(data.session)
       await loadProfile(data.session)
       setLoading(false)
-    })
+    })()
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
       if (event === 'PASSWORD_RECOVERY') {

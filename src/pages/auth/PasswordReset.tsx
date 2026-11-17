@@ -4,17 +4,30 @@ import { useAuth } from '../../auth/AuthProvider'
 import { siteUrl, supabase } from '../../lib/supabase'
 import { passwordProblems } from '../../lib/validation'
 
+type ResetAnswer = { status: 'sent' | 'no_account' | 'too_many' | 'error'; message?: string }
+
+/** Asks the password-reset Edge Function to email a one-time link through the office Gmail. */
 export function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<{ kind: 'no_account' | 'other'; text: string } | null>(null)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
-    await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: siteUrl() })
+    setProblem(null)
+    const { data, error } = await supabase.functions.invoke('password-reset', { body: { email: email.trim(), redirect_to: siteUrl() } })
+    let answer = data as ResetAnswer | null
+    if (error) {
+      // a non-2xx reply still carries the function's own message
+      const ctx = (error as { context?: Response }).context
+      answer = (ctx ? await ctx.json().catch(() => null) : null) ?? { status: 'error', message: 'Could not reach the server. Try again.' }
+    }
     setBusy(false)
-    setSent(true) // same answer whether or not the email has an account
+    if (answer?.status === 'sent') return setSent(true)
+    if (answer?.status === 'no_account') return setProblem({ kind: 'no_account', text: 'No account uses this email.' })
+    setProblem({ kind: 'other', text: answer?.message ?? 'Something went wrong. Try again.' })
   }
 
   return (
@@ -22,7 +35,7 @@ export function ForgotPassword() {
       <h1>Reset your password</h1>
       {sent ? (
         <>
-          <p>If an account exists for that email, a one-time reset link is on its way. Open it on this device.</p>
+          <p>A reset link is on its way to <strong>{email.trim()}</strong>. It works once and expires after one hour. Open it on this device.</p>
           <p className="banner info" role="note">Don&rsquo;t see it? Check your <strong>Spam</strong> or <strong>Promotions</strong> folder.</p>
         </>
       ) : (
@@ -31,8 +44,14 @@ export function ForgotPassword() {
             Email
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </label>
-          <button className="button" disabled={busy}>
-            Send reset link
+          {problem?.kind === 'no_account' && (
+            <div className="banner warn" role="alert">
+              <strong>No account uses this email.</strong> Check the spelling, or <Link to="/signup">create an account</Link>.
+            </div>
+          )}
+          {problem?.kind === 'other' && <p className="error" role="alert">{problem.text}</p>}
+          <button aria-busy={busy} className="button" disabled={busy}>
+            {busy ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
       )}
@@ -45,12 +64,20 @@ export function ForgotPassword() {
 }
 
 export function ResetPassword() {
-  const { session } = useAuth()
+  const { session, loading } = useAuth()
   const navigate = useNavigate()
   const [pw, setPw] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  if (loading) {
+    return (
+      <section className="auth-card">
+        <h1>Checking your reset link…</h1>
+        <p className="muted">One moment.</p>
+      </section>
+    )
+  }
   if (!session) {
     return (
       <section className="auth-card">

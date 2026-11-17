@@ -38,6 +38,7 @@ export function SignUp() {
   const [errors, setErrors] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
+  const [existing, setExisting] = useState<'email' | 'student' | null>(null)
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
@@ -57,6 +58,7 @@ export function SignUp() {
     if (pw.length) errs.push('Password needs ' + pw.join(', ') + '.')
     if (f.password !== f.confirm) errs.push('Passwords do not match.')
     setErrors(errs)
+    setExisting(null)
     if (errs.length) return
 
     setBusy(true)
@@ -65,10 +67,11 @@ export function SignUp() {
     })
     if (rpcErr || available === false) {
       setBusy(false)
-      setErrors([rpcErr ? 'Could not reach the server. Try again.' : 'That student number already has an account. Sign in or reset your password.'])
+      if (rpcErr) setErrors(['Could not reach the server. Try again.'])
+      else setExisting('student')
       return
     }
-    const { error } = await supabase.auth.signUp({
+    const { data: signed, error } = await supabase.auth.signUp({
       email: f.email.trim(),
       password: f.password,
       options: {
@@ -87,10 +90,12 @@ export function SignUp() {
     })
     setBusy(false)
     if (error) {
+      if (/already registered|already been registered|already exists/i.test(error.message)) return setExisting('email')
       setErrors([error.message])
       return
     }
-    // Supabase answers the same way for a new and an already-registered email, so we do too.
+    // For an email that already has an account, Supabase sends no email and returns a user with no identities.
+    if (signed.user && (signed.user.identities?.length ?? 0) === 0) return setExisting('email')
     setDone(true)
   }
 
@@ -184,6 +189,15 @@ export function SignUp() {
             <input type="password" value={f.confirm} onChange={set('confirm')} autoComplete="new-password" />
           </label>
         </div>
+        {existing && (
+          <div className="banner warn" role="alert">
+            <strong>{existing === 'email' ? 'This email already has an account.' : 'This student number already has an account.'}</strong> Sign in with it, or reset the password if you forgot it.
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              <Link className="btn" to="/signin">Sign in</Link>
+              <Link className="btn btn-plain" to="/forgot-password">Forgot password</Link>
+            </div>
+          </div>
+        )}
         {errors.length > 0 && (
           <ul className="error-list" role="alert">
             {errors.map((e) => (
