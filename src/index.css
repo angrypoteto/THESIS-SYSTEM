@@ -656,3 +656,69 @@ label.inline select { width: auto; }
   .report-table td, .report-table th { padding: 4px 6px; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* ---------- phones (2026-11-18) ---------- */
+.mobile-only { display: none; }
+/* radio and checkbox labels sit beside their button, also inside .form (whose labels stack) */
+.form .radio-row label, .radio-row label, .inline-radios label { flex-direction: row; align-items: center; }
+.menu-toggle {
+  min-height: 40px; padding: 0 14px; border: 1px solid var(--line-input); border-radius: 8px; background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; align-items: center; justify-content: center;
+}
+.bell-link { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; color: var(--ink-2); }
+.bell-badge { position: absolute; top: 2px; right: 0; min-width: 18px; padding: 0 5px; }
+@media (max-width: 760px) {
+  .mobile-only { display: inline-flex; }
+  .desktop-only { display: none !important; }
+  /* top bar: one row; the links drop down under it */
+  .topbar-inner { padding: 8px 16px; flex-wrap: nowrap; gap: 8px; }
+  .topbar .brand { margin-right: auto; min-width: 0; }
+  .topbar .brand-text span { display: none; }
+  .topbar .brand-text strong { font-size: 14px; white-space: nowrap; }
+  .topbar .nav { display: none; }
+  .topbar .nav.open {
+    display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    position: absolute; left: 0; right: 0; top: 100%; background: var(--surface);
+    border-bottom: 1px solid var(--line); box-shadow: 0 8px 18px rgba(11, 31, 77, 0.12); padding: 6px 16px 12px;
+  }
+  .topbar .nav.open a, .topbar .nav.open .link-button {
+    min-height: 48px; display: flex; align-items: center; border-bottom: 1px solid var(--line-soft); padding: 0 4px; text-align: left;
+  }
+  .topbar .nav.open a.active { border-bottom-color: var(--line-soft); color: var(--blue); }
+  .topbar .nav.open a.button { justify-content: center; margin-top: 10px; border-radius: 8px; color: #fff; }
+  .topbar { position: sticky; }
+  .content { padding-left: 16px; padding-right: 16px; }
+
+  /* application steps: a compact row of numbered steps instead of a tall list */
+  .form-layout { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 12px; }
+  .form-layout > * { width: 100%; min-width: 0; }
+  .step-list { flex: none; flex-direction: row; overflow-x: auto; gap: 6px; padding: 6px; scrollbar-width: none; }
+  .step-list::-webkit-scrollbar { display: none; }
+  .step-list > p { display: none; }
+  .step-list .step-btn { flex: 0 0 auto; width: auto; padding: 8px 10px; gap: 8px; }
+  .step-list .step-btn small { display: none; }
+  .step-list .step-btn b { font-size: 13px; white-space: nowrap; }
+  .card { padding: 18px 16px; }
+}
+/* auth pages on phones: the photo panel becomes a slim strip with the two logos; the form starts at the top */
+@media (max-width: 760px) {
+  .auth-panel { padding: 12px 16px; gap: 0; }
+  .auth-panel-copy { display: none; }
+  .auth-lockup-wide { display: none; }
+  .auth-strip { display: flex; }
+  .auth-shell { grid-template-rows: auto 1fr; min-height: 100vh; }
+  .auth-panel { min-height: 0; }
+  .auth-main { padding-top: 12px; }
+  .auth-form-wrap { flex: none; align-items: flex-start; }
+}
+/* numbered next steps on the Check your email and Welcome pages */
+.next-steps { margin: 4px 0 16px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
+.welcome-card h1 { margin-top: 10px; }
+/* the phone strip on sign-in / sign-up / reset pages (hidden on wider screens) */
+.auth-strip { display: none; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.auth-strip-name { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.25; color: #fff; }
+.auth-strip-name strong { font-size: 17px; letter-spacing: .2px; }
+.auth-strip-name span { font-size: 12px; color: #C9D6E8; }
+@media (max-width: 760px) { .auth-strip { display: flex; } .auth-lockup-wide { display: none; } }
+.auth-strip img, .auth-strip .logo-fallback { border-radius: 50%; background: #fff; flex: none; }
+@media (max-width: 760px) { .auth-card-head .auth-home-link { display: none; } .auth-card-head h1 { margin-top: 0; } }

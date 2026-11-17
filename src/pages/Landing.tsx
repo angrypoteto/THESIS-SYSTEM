@@ -111,7 +111,6 @@ export function Landing() {
             <p>The Educational Service Office runs the scholarship: it checks requirements, ranks applicants and decides who receives the allowance.</p>
           </div>
         </div>
-        <div className="partner-link" aria-hidden="true"><span /></div>
         <div className="partner-card">
           <Logo which="rtu" size={72} />
           <div>
