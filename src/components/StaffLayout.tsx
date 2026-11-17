@@ -29,6 +29,7 @@ const ADMIN: [string, string, IconName][] = [
   ['/admin/criteria', 'Criteria & weights', 'sliders'],
   ['/admin/cycles', 'Cycles & slots', 'cycle'],
   ['/admin/users', 'Users & roles', 'key'],
+  ['/admin/duplicates', 'Duplicates', 'copy'],
   ['/admin/audit', 'Audit log', 'shield'],
 ]
 
@@ -42,6 +43,7 @@ export function StaffLayout() {
   const [cycles, setCycles] = useState<ProgramCycle[]>([])
   const [cycleId, setCycleId] = useState<number | null>(null)
   const [queueCount, setQueueCount] = useState<number | null>(null)
+  const [dupCount, setDupCount] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   const [cyclesTick, setCyclesTick] = useState(0)
 
@@ -71,6 +73,16 @@ export function StaffLayout() {
     }
   }, [cycleId, tick])
 
+  // open duplicate-account cases, shown as a badge next to Duplicates
+  useEffect(() => {
+    let live = true
+    supabase.from('duplicate_cases').select('id', { count: 'exact', head: true }).eq('status', 'open')
+      .then(({ count }) => live && setDupCount(count ?? 0))
+    return () => {
+      live = false
+    }
+  }, [tick])
+
   const cycle = cycles.find((c) => c.id === cycleId) ?? null
   const isAdmin = profile?.role === 'admin'
   const ctx: StaffContext = { cycle, cycles, refreshCounts: () => setTick((t) => t + 1), reloadCycles: () => setCyclesTick((t) => t + 1) }
@@ -80,6 +92,7 @@ export function StaffLayout() {
       <Icon name={icon} />
       <span>{label}</span>
       {to === '/staff' && queueCount ? <span className="side-badge">{queueCount}</span> : null}
+      {to === '/admin/duplicates' && dupCount ? <span className="side-badge">{dupCount}</span> : null}
     </NavLink>
   )
 

@@ -31,6 +31,7 @@ export function ApplicantFile() {
   const [evals, setEvals] = useState<Evaluation[]>([])
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [dupOpen, setDupOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -57,6 +58,11 @@ export function ApplicantFile() {
     setValues((v.data as Record<string, number | null>) ?? {})
     setResult((r.data?.[0] as unknown as ResultRow) ?? null)
     setEvals((e.data as unknown as Evaluation[]) ?? [])
+    const who = (a.data as unknown as { applicant_id?: string } | null)?.applicant_id
+    if (who) {
+      const { data: d } = await supabase.rpc('has_open_duplicate', { p_user: who })
+      setDupOpen(d === true)
+    }
   }, [id])
 
   useEffect(() => {
@@ -96,6 +102,12 @@ export function ApplicantFile() {
       </div>
       {app.flags?.length > 0 && (
         <p className="banner warn" role="note">Needs your judgment: {app.flags.map(flagText).join('; ')}</p>
+      )}
+      {dupOpen && (
+        <p className="banner warn" role="note">
+          <strong>Possible duplicate account.</strong> This applicant matches another account. Until an admin resolves it on the{' '}
+          <Link to="/admin/duplicates">Duplicates</Link> screen, this application cannot be cleared for the exam or the ranking.
+        </p>
       )}
       {msg && <p className={msg.kind === 'ok' ? 'success' : 'error'} role="status">{msg.text}</p>}
 
