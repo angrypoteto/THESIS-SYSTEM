@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Logo } from '../../components/Logos'
 import { CONSENT_VERSION, siteUrl, supabase } from '../../lib/supabase'
 import { passwordProblems } from '../../lib/validation'
@@ -37,7 +37,7 @@ export function SignUp() {
   const [f, setF] = useState<Form>(empty)
   const [errors, setErrors] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(false)
+  const navigate = useNavigate()
   const [existing, setExisting] = useState<'email' | 'student' | null>(null)
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -75,7 +75,7 @@ export function SignUp() {
       email: f.email.trim(),
       password: f.password,
       options: {
-        emailRedirectTo: siteUrl(),
+        emailRedirectTo: siteUrl() + '?welcome=1', // the confirmation link opens the Welcome page
         data: {
           surname: f.surname.trim(),
           first_name: f.first_name.trim(),
@@ -96,32 +96,7 @@ export function SignUp() {
     }
     // For an email that already has an account, Supabase sends no email and returns a user with no identities.
     if (signed.user && (signed.user.identities?.length ?? 0) === 0) return setExisting('email')
-    setDone(true)
-  }
-
-  if (done) {
-    return (
-      <section className="auth-card">
-        <div className="auth-card-head">
-          <Link to="/" className="auth-home-link" aria-label="Go to the home page" title="Home">
-            <Logo which="mandaluyong" size={64} />
-          </Link>
-          <h1>Check your email</h1>
-        </div>
-        <p>
-          We sent a confirmation link to <strong>{f.email}</strong>. Open it on this device to activate your account. The
-          link works once and expires.
-        </p>
-        <p className="banner info" role="note">
-          <strong>Don&rsquo;t see it?</strong> Check your <strong>Spam</strong> or <strong>Promotions</strong> folder. If the email is
-          there, mark it &ldquo;Not spam&rdquo; so the portal&rsquo;s exam schedule and result emails reach your inbox.
-        </p>
-        <Link to="/signin" className="btn btn-lg btn-block">
-          Go to sign in
-        </Link>
-        <p className="auth-card-copy">© {new Date().getFullYear()} City of Mandaluyong · Educational Service Office</p>
-      </section>
-    )
+    navigate('/check-email', { state: { email: f.email.trim() } })
   }
 
   return (

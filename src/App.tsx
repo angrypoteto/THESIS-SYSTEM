@@ -1,3 +1,4 @@
+import { CheckEmail, Welcome } from './pages/auth/AfterSignUp'
 import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import { AuthLayout } from './components/AuthLayout'
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="app" element={<RequireRole><Dashboard /></RequireRole>} />
             <Route path="app/application" element={<RequireRole roles={['applicant']}><ApplicationPage /></RequireRole>} />
             <Route path="profile" element={<RequireRole><Profile /></RequireRole>} />
+            <Route path="welcome" element={<Welcome />} />
             <Route path="*" element={<section className="card narrow"><h1>Page not found</h1><Link to="/">Home</Link></section>} />
           </Route>
 
@@ -45,6 +47,7 @@ export default function App() {
             <Route path="signup" element={<SignUp />} />
             <Route path="forgot-password" element={<ForgotPassword />} />
             <Route path="reset-password" element={<ResetPassword />} />
+            <Route path="check-email" element={<CheckEmail />} />
           </Route>
 
           {/* staff + admin: sidebar */}

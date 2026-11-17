@@ -12,6 +12,10 @@ export function Layout() {
   const navigate = useNavigate()
   const role = profile?.role
   const [unread, setUnread] = useState(0)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const path = useLocation().pathname
+  // close the phone menu whenever the page changes
+  useEffect(() => setMenuOpen(false), [path])
 
   useEffect(() => {
     if (!profile || role !== 'applicant') return
@@ -37,7 +41,17 @@ export function Layout() {
               <span>City Government of Mandaluyong</span>
             </span>
           </Link>
-          <nav className="nav" aria-label="Main">
+          {session && role === 'applicant' && (
+            <Link to="/app" className="mobile-only bell-link" aria-label={`Messages, ${unread} unread`}>
+              <Icon name="bell" size={22} />
+              {unread > 0 && <span className="side-badge bell-badge">{unread}</span>}
+            </Link>
+          )}
+          <button type="button" className="menu-toggle mobile-only" aria-expanded={menuOpen} aria-controls="main-nav"
+            onClick={() => setMenuOpen((o) => !o)}>
+            {menuOpen ? 'Close' : 'Menu'}
+          </button>
+          <nav id="main-nav" className={`nav ${menuOpen ? 'open' : ''}`} aria-label="Main">
             {session ? (
               <>
                 <NavLink to="/app" end>Dashboard</NavLink>
@@ -45,7 +59,7 @@ export function Layout() {
                 {(role === 'evaluator' || role === 'admin') && <NavLink to="/staff">Staff workspace</NavLink>}
                 <NavLink to="/profile">Profile</NavLink>
                 {role === 'applicant' && (
-                  <Link to="/app" aria-label={`Messages, ${unread} unread`} style={{ position: 'relative' }}>
+                  <Link to="/app" className="desktop-only" aria-label={`Messages, ${unread} unread`} style={{ position: 'relative' }}>
                     <Icon name="bell" size={22} />
                     {unread > 0 && <span className="side-badge" style={{ position: 'absolute', top: 2, right: 0, minWidth: 18, padding: '0 5px' }}>{unread}</span>}
                   </Link>

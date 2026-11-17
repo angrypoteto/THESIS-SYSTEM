@@ -55,7 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTimeout(() => loadProfile(s), 0)
     })
     // remove ?code=... from the address bar after the PKCE exchange
-    if (window.location.search.includes('code=')) {
+    if (window.location.search.includes('welcome=1')) {
+      window.history.replaceState(null, '', window.location.pathname + '#/welcome')
+    } else if (window.location.search.includes('code=')) {
       window.history.replaceState(null, '', window.location.pathname + window.location.hash)
     }
     return () => sub.subscription.unsubscribe()
