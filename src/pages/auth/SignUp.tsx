@@ -39,6 +39,7 @@ export function SignUp() {
   const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
   const [existing, setExisting] = useState<'email' | 'student' | null>(null)
+  const [emailProblem, setEmailProblem] = useState<{ reason: string; suggestion: string | null } | null>(null)
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
@@ -59,9 +60,18 @@ export function SignUp() {
     if (f.password !== f.confirm) errs.push('Passwords do not match.')
     setErrors(errs)
     setExisting(null)
+    setEmailProblem(null)
     if (errs.length) return
 
     setBusy(true)
+    // no confirmation email to an address that cannot be real (typos, throwaway services, domains without mail)
+    const { data: check } = await supabase.functions.invoke('check-email', { body: { email: f.email.trim() } })
+    const verdict = check as { ok: boolean; reason?: string; suggestion?: string | null } | null
+    if (verdict && verdict.ok === false) {
+      setBusy(false)
+      setEmailProblem({ reason: verdict.reason ?? 'This email address cannot be used.', suggestion: verdict.suggestion ?? null })
+      return
+    }
     const { data: available, error: rpcErr } = await supabase.rpc('student_number_available', {
       p_student_number: f.student_number.trim(),
     })
@@ -91,6 +101,7 @@ export function SignUp() {
     setBusy(false)
     if (error) {
       if (/already registered|already been registered|already exists/i.test(error.message)) return setExisting('email')
+      if (/email not accepted/i.test(error.message)) return setEmailProblem({ reason: error.message.replace(/^.*email not accepted:\s*/i, ''), suggestion: null })
       setErrors([error.message])
       return
     }
@@ -164,6 +175,18 @@ export function SignUp() {
             <input type="password" value={f.confirm} onChange={set('confirm')} autoComplete="new-password" />
           </label>
         </div>
+        {emailProblem && (
+          <div className="banner warn" role="alert">
+            <strong>Check your email address.</strong> {emailProblem.reason}
+            {emailProblem.suggestion && (
+              <div style={{ marginTop: 10 }}>
+                <button type="button" className="btn btn-plain" onClick={() => { setF({ ...f, email: emailProblem.suggestion! }); setEmailProblem(null) }}>
+                  Use {emailProblem.suggestion}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {existing && (
           <div className="banner warn" role="alert">
             <strong>{existing === 'email' ? 'This email already has an account.' : 'This student number already has an account.'}</strong> Sign in with it, or reset the password if you forgot it.
