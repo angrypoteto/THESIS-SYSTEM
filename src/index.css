@@ -704,7 +704,8 @@ label.inline select { width: auto; }
 @media (max-width: 760px) {
   .auth-panel { padding: 12px 16px; gap: 0; }
   .auth-panel-copy { display: none; }
-  .auth-panel .auth-logos, .auth-panel > div:first-child { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
+  .auth-lockup-wide { display: none; }
+  .auth-strip { display: flex; }
   .auth-shell { grid-template-rows: auto 1fr; min-height: 100vh; }
   .auth-panel { min-height: 0; }
   .auth-main { padding-top: 12px; }
@@ -713,3 +714,10 @@ label.inline select { width: auto; }
 /* numbered next steps on the Check your email and Welcome pages */
 .next-steps { margin: 4px 0 16px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
 .welcome-card h1 { margin-top: 10px; }
+/* the phone strip on sign-in / sign-up / reset pages (hidden on wider screens) */
+.auth-strip { display: none; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.auth-strip-name { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.25; color: #fff; }
+.auth-strip-name strong { font-size: 17px; letter-spacing: .2px; }
+.auth-strip-name span { font-size: 12px; color: #C9D6E8; }
+@media (max-width: 760px) { .auth-strip { display: flex; } .auth-lockup-wide { display: none; } }
+.auth-strip img, .auth-strip .logo-fallback { border-radius: 50%; background: #fff; flex: none; }

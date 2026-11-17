@@ -1,6 +1,6 @@
 import type React from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { PartnerLockup } from './Logos'
+import { Logo, PartnerLockup } from './Logos'
 
 const COPY: Record<string, { title: string; text: string }> = {
   '/signin': {
@@ -11,6 +11,10 @@ const COPY: Record<string, { title: string; text: string }> = {
     title: 'Start your scholarship application',
     text: 'Create your account with your RTU student number. Your application saves as you go, so you can come back anytime.',
   },
+}
+COPY['/check-email'] = {
+  title: 'Almost there',
+  text: 'Confirm your email to finish creating your account. Then complete your profile and step 1 before the deadline.',
 }
 const DEFAULT = { title: 'Your account', text: 'Reset your password to get back into the Scholarship Portal.' }
 
@@ -28,8 +32,17 @@ export function AuthLayout() {
   return (
     <div className="auth-shell">
       <aside className="auth-panel" style={photo}>
-        <Link to="/" className="auth-home-link" aria-label="Go to the home page">
+        <Link to="/" className="auth-home-link auth-lockup-wide" aria-label="Go to the home page">
           <PartnerLockup size={52} onDark />
+        </Link>
+        {/* phones: one row, seal on the left, the portal's name in the middle, RTU logo on the right */}
+        <Link to="/" className="auth-home-link auth-strip" aria-label="Go to the home page">
+          <Logo which="mandaluyong" size={40} />
+          <span className="auth-strip-name">
+            <strong>Scholarship Portal</strong>
+            <span>City of Mandaluyong · RTU</span>
+          </span>
+          <Logo which="rtu" size={40} />
         </Link>
         <div className="auth-panel-copy">
           <h2>{copy.title}</h2>
