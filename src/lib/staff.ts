@@ -27,7 +27,7 @@ export interface StaffAppRow {
 }
 
 export const STAFF_APP_SELECT =
-  'id,status,stage,exam_result,exam_score,combined_score,academic_rank,applicant_no,submitted_at,flags,household_size,declared_monthly_income,gwa_converted,' +
+  'id,applicant_id,status,stage,exam_result,exam_score,combined_score,academic_rank,applicant_no,submitted_at,flags,household_size,declared_monthly_income,gwa_converted,' +
   'applicants(course,year_level,barangays(name),schools(name),profiles(full_name,student_number)),' +
   'documents(id,type_code,verification_status,is_current),gate_results(gate_code,passed)'
 
