@@ -23,7 +23,7 @@ const STEPS = ['Step 1: RTU COR and grades', 'Qualifying exam at RTU', 'Step 2: 
 export function AuthLayout() {
   const { pathname } = useLocation()
   const copy = COPY[pathname] ?? DEFAULT
-  const photo = { '--auth-bg': `url(${import.meta.env.BASE_URL}images/mandaluyong-city.jpg)` } as React.CSSProperties
+  const photo = { '--auth-bg': `url(${new URL('images/mandaluyong-city.jpg', document.baseURI).href})` } as React.CSSProperties
 
   return (
     <div className="auth-shell">

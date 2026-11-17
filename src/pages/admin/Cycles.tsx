@@ -13,6 +13,7 @@ type Form = {
   exam_venue: string
   step2_closes_at: string
   slots: string
+  step2_slots: string
   gwa_cutoff: string
   status: ProgramCycle['status']
 }
@@ -35,13 +36,13 @@ const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null)
 
 const blank = (): Form => ({
   name: '', school_year: '', term: '1st semester', opens_at: '', closes_at: '', exam_at: '', exam_venue: 'Rizal Technological University, Boni Avenue',
-  step2_closes_at: '', slots: '', gwa_cutoff: '81', status: 'draft',
+  step2_closes_at: '', slots: '', step2_slots: '', gwa_cutoff: '81', status: 'draft',
 })
 
 const fromCycle = (c: ProgramCycle): Form => ({
   name: c.name, school_year: c.school_year, term: c.term, opens_at: toLocal(c.opens_at), closes_at: toLocal(c.closes_at),
   exam_at: toLocal(c.exam_at), exam_venue: c.exam_venue ?? '', step2_closes_at: toLocal(c.step2_closes_at),
-  slots: String(c.slots), gwa_cutoff: String(c.gwa_cutoff), status: c.status,
+  slots: String(c.slots), step2_slots: c.step2_slots == null ? '' : String(c.step2_slots), gwa_cutoff: String(c.gwa_cutoff), status: c.status,
 })
 
 /** Admin: the program cycle's deadlines (client: the admin sets them), exam schedule, slots and GWA cut-off. */
@@ -68,6 +69,7 @@ export function Cycles() {
     if (f.exam_at && f.closes_at && Date.parse(f.exam_at) < Date.parse(f.closes_at)) p.push('The exam should be after step 1 closes.')
     if (f.step2_closes_at && f.exam_at && Date.parse(f.step2_closes_at) <= Date.parse(f.exam_at)) p.push('The step 2 deadline must be after the exam.')
     if (!(Number(f.slots) >= 0) || f.slots === '') p.push('Enter the number of slots.')
+    if (f.step2_slots !== '' && Number(f.step2_slots) < Number(f.slots)) p.push('The number who proceed to step 2 cannot be less than the final slots.')
     if (!(Number(f.gwa_cutoff) > 0 && Number(f.gwa_cutoff) <= 100)) p.push('GWA cut-off is a percentage (for example 81).')
     return p
   }
@@ -80,10 +82,11 @@ export function Cycles() {
       name: f.name.trim(), school_year: f.school_year.trim(), term: f.term.trim(),
       opens_at: fromLocal(f.opens_at), closes_at: fromLocal(f.closes_at), exam_at: fromLocal(f.exam_at),
       exam_venue: f.exam_venue.trim() || null, step2_closes_at: fromLocal(f.step2_closes_at),
-      slots: Number(f.slots), gwa_cutoff: Number(f.gwa_cutoff), status: f.status,
+      slots: Number(f.slots), step2_slots: f.step2_slots === '' ? null : Number(f.step2_slots),
+      gwa_cutoff: Number(f.gwa_cutoff), status: f.status,
     }
     const res = editing === 'new'
-      ? await supabase.from('program_cycles').insert(row).select('id').single()
+      ? await supabase.from('program_cycles').insert({ ...row, pay_tiers: [] }).select('id').single()
       : await supabase.from('program_cycles').update(row).eq('id', editing as number).select('id').single()
     setBusy(false)
     if (res.error) return setMsg({ ok: false, text: res.error.message })
@@ -102,7 +105,7 @@ export function Cycles() {
         <button className="btn btn-plain" onClick={() => { setEditing('new'); setMsg(null) }}>+ New cycle</button>
       </div>
 
-      <div className="grid two">
+      <div className="grid two grid-top">
         <section className="card">
           <h2>Cycles</h2>
           <ul className="checklist">
@@ -142,8 +145,13 @@ export function Cycles() {
             <span className="muted small">Leave empty to keep step 2 open until the cycle is ranked.</span>
           </label>
           <h3>Selection</h3>
+          <label className="field">
+            Applicants who proceed to step 2
+            <input type="number" min={0} value={f.step2_slots} onChange={set('step2_slots')} placeholder="e.g. twice the slots" />
+            <span className="muted small">After the exam, applicants are ranked on 70% exam score + 30% GWA and this many proceed. Leave empty to use the number of slots.</span>
+          </label>
           <div className="row">
-            <label className="field">Slots<input type="number" min={0} value={f.slots} onChange={set('slots')} /></label>
+            <label className="field">Final slots (scholars)<input type="number" min={0} value={f.slots} onChange={set('slots')} /></label>
             <label className="field">GWA cut-off (%)<input type="number" min={1} max={100} step={0.01} value={f.gwa_cutoff} onChange={set('gwa_cutoff')} /></label>
           </div>
           <label className="field">
@@ -153,7 +161,7 @@ export function Cycles() {
             </select>
           </label>
           {msg && <p className={msg.ok ? 'ok-text' : 'error'} role="status">{msg.text}</p>}
-          <button className="btn btn-lg" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save cycle'}</button>
+          <button aria-busy={busy} className="btn btn-lg" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save cycle'}</button>
         </section>
       </div>
     </>

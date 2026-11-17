@@ -56,7 +56,7 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 /* ---------- public / applicant shell ---------- */
 .shell { min-height: 100vh; display: flex; flex-direction: column; overflow-x: clip; }
 /* sticky so sign-in, notifications and navigation stay reachable while scrolling; z-index above Leaflet panes (400-1000) */
-.topbar { background: var(--surface); border-top: 4px solid var(--gold); border-bottom: 1px solid var(--line);
+.topbar { background: var(--surface); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 1100; box-shadow: 0 1px 6px rgba(11, 31, 77, 0.06); }
 .topbar-inner {
   max-width: 1180px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center;
@@ -136,8 +136,19 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 .button, .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--target);
   padding: 0 18px; border: 0; border-radius: 8px; background: var(--blue); color: #fff; font: inherit;
-  font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap;
+  font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none;
+  /* long labels wrap inside the button instead of pushing the page sideways */
+  max-width: 100%; white-space: normal; text-align: center; line-height: 1.25; padding-block: 8px;
 }
+/* loading state: any button with aria-busy shows a spinner before its label */
+.button[aria-busy="true"]::before, .btn[aria-busy="true"]::before {
+  content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite;
+}
+.button[aria-busy="true"], .btn[aria-busy="true"] { cursor: progress; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .button[aria-busy="true"]::before, .btn[aria-busy="true"]::before { animation-duration: 2.4s; } }
+.busy-note { margin: 8px 0 0; }
 .button:hover, .btn:hover { background: var(--blue-dark); color: #fff; }
 .button:disabled, .btn:disabled { background: #D5DCE5; color: var(--muted); cursor: not-allowed; }
 .button.small { min-height: var(--target); padding: 0 14px; font-size: 14px; }
@@ -169,12 +180,34 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 .grid { display: grid; gap: 18px; margin-bottom: 18px; }
 .grid .card { margin-bottom: 0; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+/* a short card beside a long one keeps its own height and stays in view, instead of stretching into a tall empty box */
+.grid.grid-top { align-items: start; }
+@media (min-width: 1240px) { .staff-main .grid.grid-top > .card:first-child { position: sticky; top: 16px; } }
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 .split > .main { flex: 999 1 560px; min-width: 0; }
 .split > .side { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
 .split > .side .card, .split > .main .card { margin-bottom: 18px; }
+/* When the two columns sit side by side, the shorter one stays in view while the longer one scrolls,
+   so there is no blank half-page beside a long column (for example the document beside its checks). */
+@media (min-width: 1240px) {
+  .staff-main .split > .main, .staff-main .split > .side { position: sticky; top: 16px; }
+  .staff-main .split > .main.card .doc-image { max-height: calc(100vh - 150px); overflow: auto; }
+  /* pages with a sticky header: the columns stick below it */
+  .staff-main:has(.sticky-head) .split > .main, .staff-main:has(.sticky-head) .split > .side { top: 136px; }
+  .staff-main:has(.sticky-head) .split > .main.card .doc-image { max-height: calc(100vh - 270px); }
+}
+/* Applicant file and document check: the back link, name and status stay at the top while scrolling.
+   The negative margins let the page-coloured background cover the page padding (no border, no shadow). */
+@media (min-width: 820px) {
+  .staff-main .sticky-head {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    margin: -24px -28px 0; padding: 16px 28px 12px; min-height: 0;
+  }
+  .staff-main .sticky-head h1 { margin: 0; }
+  .staff-main .sticky-head p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70vw; }
+}
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .page-head p { margin: 0; color: var(--muted); font-size: 15px; }
 .back { font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; min-height: var(--target); }
@@ -218,6 +251,11 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 /* ---------- forms ---------- */
 .form { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
 .form label, .field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px; }
+/* fields stacked directly under another field or a row of fields get breathing room (the hint of one no longer touches the next label) */
+.field + .field, .row + .field, .field + .row, .row + .row { margin-top: 14px; }
+/* ...but not fields side by side in one row: those must start at the same height */
+.row > .field, .row > label, .row > div { margin-top: 0; }
+.card > .field + .btn, .card > .row + .btn, .card > .field + .button { margin-top: 14px; }
 .form label.check, .check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; }
 .check input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
 .row { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
@@ -236,7 +274,7 @@ label.inline select { width: auto; }
 .choice:has(input:checked) { border-color: var(--blue); background: var(--blue-tint); }
 
 /* ---------- data ---------- */
-.table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.table { width: 100%; border-collapse: collapse; font-size: 15px; position: relative; } /* relative: keeps hidden screen-reader labels inside the table's scroll box, so they cannot widen the page on phones */
 .table th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 10px 14px; background: var(--surface-2); }
 .table td { padding: 12px 14px; border-top: 1px solid var(--line-soft); vertical-align: middle; }
 .table .num, .num { text-align: right; font-variant-numeric: tabular-nums; }

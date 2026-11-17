@@ -67,7 +67,7 @@ export function Reports() {
       <div className="grid four" style={{ marginBottom: 0 }}>
         <div className="stat"><div className="stat-value">{rows ? all.length : '…'}</div><div className="stat-label">Applications submitted</div></div>
         <div className="stat"><div className="stat-value">{approved.length} / {cycle.slots}</div><div className="stat-label">Approved / slots</div></div>
-        <div className="stat"><div className="stat-value">{peso(allowance)}</div><div className="stat-label">Allowances of approved (per release)</div></div>
+        {allowance > 0 && <div className="stat"><div className="stat-value">{peso(allowance)}</div><div className="stat-label">Allowances of approved (per release)</div></div>}
         <div className="stat"><div className="stat-value">{overrides}</div><div className="stat-label">Decisions against the recommendation</div></div>
       </div>
 

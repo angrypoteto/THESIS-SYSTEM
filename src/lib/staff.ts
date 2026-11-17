@@ -6,6 +6,10 @@ export interface StaffAppRow {
   status: ApplicationStatus
   stage: 1 | 2
   exam_result: 'passed' | 'failed' | 'absent' | null
+  exam_score: number | null
+  combined_score: number | null
+  academic_rank: number | null
+  applicant_no: string | null
   submitted_at: string | null
   flags: { code: string; detail?: unknown }[]
   household_size: number | null
@@ -23,7 +27,7 @@ export interface StaffAppRow {
 }
 
 export const STAFF_APP_SELECT =
-  'id,status,stage,exam_result,submitted_at,flags,household_size,declared_monthly_income,gwa_converted,' +
+  'id,status,stage,exam_result,exam_score,combined_score,academic_rank,applicant_no,submitted_at,flags,household_size,declared_monthly_income,gwa_converted,' +
   'applicants(course,year_level,barangays(name),schools(name),profiles(full_name,student_number)),' +
   'documents(id,type_code,verification_status,is_current),gate_results(gate_code,passed)'
 

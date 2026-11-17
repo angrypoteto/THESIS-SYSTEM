@@ -26,6 +26,9 @@ export interface ProgramCycle {
   exam_at: string | null
   exam_venue: string | null
   step2_closes_at: string | null
+  step2_slots: number | null
+  exam_finalized_at: string | null
+  selection_finalized_at: string | null
   status: 'draft' | 'open' | 'closed' | 'ranked' | 'finalized'
 }
 
@@ -71,6 +74,10 @@ export interface Application {
   status: ApplicationStatus
   stage: 1 | 2
   exam_result: 'passed' | 'failed' | 'absent' | null
+  exam_score: number | null
+  combined_score: number | null
+  academic_rank: number | null
+  applicant_no: string | null
   step1_submitted_at: string | null
   declared_monthly_income: number | null
   ses_inputs: import('./ses').SesInputs
