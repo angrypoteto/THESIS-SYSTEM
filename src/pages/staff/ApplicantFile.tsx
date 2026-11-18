@@ -13,9 +13,12 @@ import type { HouseholdMember } from '../../lib/types'
 
 interface Gate { gate_code: string; passed: boolean; reason: string | null; override_reason: string | null }
 interface Prediction { qualification_prob: number | null; predicted_income_pc: number | null; recommendation: string | null; shap_reasons: { label: string; value: number; effect: number; direction: string }[] }
+interface Feedback { staff_need: string; note: string | null; created_at: string; profiles: { full_name: string } | null }
 interface CriterionRow { code: string; name: string; source_field: string; weight: number | null }
 interface ResultRow { rank: number; closeness: number; recommended: boolean; pay_tier_amount: number | null; run_id: number }
 interface Evaluation { id: number; decision: string; remarks: string | null; is_override: boolean; created_at: string; profiles: { full_name: string } | null }
+
+const FEEDBACK_LABEL: Record<string, string> = { in_need: 'In need', not_in_need: 'Not in need', unsure: 'Not sure' }
 
 /** Design screen 7: gates, need estimate with reasons, ranking values, and the person's decision. */
 export function ApplicantFile() {
@@ -32,10 +35,12 @@ export function ApplicantFile() {
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [dupOpen, setDupOpen] = useState(false)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [fbNote, setFbNote] = useState('')
 
   const load = useCallback(async () => {
     if (!id) return
-    const [a, m, g, p, c, w, v, r, e] = await Promise.all([
+    const [a, m, g, p, c, w, v, r, e, f] = await Promise.all([
       supabase.from('applications').select(STAFF_APP_SELECT).eq('id', id).single(),
       supabase.from('household_members').select('*').eq('application_id', id).order('id'),
       supabase.from('gate_results').select('gate_code,passed,reason,override_reason').eq('application_id', id),
@@ -45,6 +50,7 @@ export function ApplicantFile() {
       supabase.from('v_application_criteria_source').select('*').eq('application_id', id).maybeSingle(),
       supabase.from('results').select('rank,closeness,recommended,pay_tier_amount,run_id,ranking_runs!inner(is_official)').eq('application_id', id).eq('ranking_runs.is_official', true).limit(1),
       supabase.from('evaluations').select('id,decision,remarks,is_override,created_at,profiles(full_name)').eq('application_id', id).order('created_at', { ascending: false }),
+      supabase.from('ml_feedback').select('staff_need,note,created_at,profiles(full_name)').eq('application_id', id).order('created_at', { ascending: false }).limit(1),
     ])
     setApp(a.data as unknown as StaffAppRow)
     setMembers((m.data as HouseholdMember[]) ?? [])
@@ -58,6 +64,7 @@ export function ApplicantFile() {
     setValues((v.data as Record<string, number | null>) ?? {})
     setResult((r.data?.[0] as unknown as ResultRow) ?? null)
     setEvals((e.data as unknown as Evaluation[]) ?? [])
+    setFeedback((f.data?.[0] as unknown as Feedback) ?? null)
     const who = (a.data as unknown as { applicant_id?: string } | null)?.applicant_id
     if (who) {
       const { data: d } = await supabase.rpc('has_open_duplicate', { p_user: who })
@@ -168,6 +175,38 @@ export function ApplicantFile() {
             )}
             {busy && (
               <p className="small muted busy-note" role="status">Working. If the estimating service was asleep, this can take up to a minute.</p>
+            )}
+            {pred && app.stage === 2 && (
+              <div className="mt">
+                <h3 style={{ marginBottom: 4 }}>Do you agree? Your judgement</h3>
+                <p className="small muted" style={{ marginTop: 0 }}>
+                  After reading the documents, is this household in need? Your answer is saved as a label to check and later
+                  retrain the model (Administration &gt; Models). It does not change the ranking.
+                </p>
+                {feedback && (
+                  <p className="small" style={{ marginTop: 0 }}>
+                    Last answer: <strong>{FEEDBACK_LABEL[feedback.staff_need] ?? feedback.staff_need}</strong>
+                    {feedback.profiles?.full_name ? ` by ${feedback.profiles.full_name}` : ''}, {new Date(feedback.created_at).toLocaleDateString()}
+                    {feedback.note ? ` · “${feedback.note}”` : ''}
+                  </p>
+                )}
+                <label className="field" style={{ marginTop: 0 }}>
+                  <span className="small">Note (optional)</span>
+                  <input value={fbNote} onChange={(e) => setFbNote(e.target.value)} maxLength={300} placeholder="e.g. both parents are vendors" />
+                </label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                  {(['in_need', 'not_in_need', 'unsure'] as const).map((k) => (
+                    <button key={k} className={`btn ${feedback?.staff_need === k ? '' : 'btn-plain'}`} disabled={busy}
+                      onClick={() => act(async () => {
+                        const { error } = await supabase.rpc('record_need_feedback', { p_app: app.id, p_need: k, p_note: fbNote || null })
+                        if (!error) setFbNote('')
+                        return { error }
+                      }, 'Your answer is saved.')}>
+                      {FEEDBACK_LABEL[k]}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </section>
 
