@@ -45,6 +45,8 @@ export function Profile() {
     shs_choice: '', shs_other: '',
   })
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  // Applicant ID (MESO-YYYY-NNNNN): given only when the applicant passes the qualifying exam (client flow v3)
+  const [applicantNo, setApplicantNo] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.from('schools').select('id,name').eq('is_active', true).eq('is_eligible', true).order('name').then(({ data }) => setSchools(data ?? []))
@@ -56,6 +58,9 @@ export function Profile() {
           suffix: data.suffix ?? '', birth_date: data.birth_date ?? '', mobile: data.mobile ?? '' })
       })
     if (profile.role === 'applicant') {
+      supabase.from('applications').select('applicant_no').eq('applicant_id', profile.id).not('applicant_no', 'is', null)
+        .order('created_at', { ascending: false }).limit(1)
+        .then(({ data }) => setApplicantNo(data?.[0]?.applicant_no ?? null))
       supabase.from('applicants').select('*').eq('id', profile.id).maybeSingle().then(({ data }) => {
         if (!data) return
         const shs = data.shs_school ?? ''
@@ -124,6 +129,14 @@ export function Profile() {
         {isApplicant ? 'The same details the office’s online application asks for. Fill them in before you start your application.' : ''}
       </p>
       <dl className="facts">
+        {isApplicant && <>
+          <dt>Applicant ID</dt>
+          <dd>{applicantNo
+            ? <strong>{applicantNo}</strong>
+            : <span className="muted">Not yet. You receive it by email when you pass the qualifying exam.</span>}</dd>
+          <dt>Account ID</dt>
+          <dd><code style={{ fontSize: '0.85em', wordBreak: 'break-all' }}>{profile.id}</code></dd>
+        </>}
         <dt>Student number</dt>
         <dd>{profile.student_number ?? '—'}</dd>
         <dt>Role</dt>
