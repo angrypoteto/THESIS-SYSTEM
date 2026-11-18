@@ -4,12 +4,14 @@ import { supabase } from '../../lib/supabase'
 import type { Criterion } from '../../lib/types'
 
 const RI: Record<number, number> = { 1: 0, 2: 0, 3: 0.58, 4: 0.9, 5: 1.12, 6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49 }
-const SCALE: [number, string][] = [
-  [9, 'Left extremely more (9)'], [7, 'Left very strongly more (7)'], [5, 'Left strongly more (5)'], [4, 'Left more (4)'],
-  [3, 'Left moderately more (3)'], [2, 'Left slightly more (2)'], [1, 'Equal (1)'], [-2, 'Right slightly more (2)'],
-  [-3, 'Right moderately more (3)'], [-4, 'Right more (4)'], [-5, 'Right strongly more (5)'], [-7, 'Right very strongly more (7)'],
-  [-9, 'Right extremely more (9)'],
-]
+// Saaty's 1-9 scale on a slider: position -8 (left end) .. 0 (middle) .. +8 (right end).
+// Toward the left = the left criterion matters more (stored as 2..9); toward the right = the right one (stored as -2..-9).
+const STRENGTH = ['', 'equally important', 'slightly more important', 'moderately more important', 'moderately to strongly more important',
+  'strongly more important', 'strongly to very strongly more important', 'very strongly more important',
+  'very to extremely more important', 'extremely more important']
+const toPos = (s: number) => (s >= 1 ? -(s - 1) : -s - 1)
+const fromPos = (p: number) => (p < 0 ? -p + 1 : p > 0 ? -(p + 1) : 1)
+const TICKS = [9, 7, 5, 3, 1, 3, 5, 7, 9]
 
 interface WeightSet { id: number; label: string; cr: number | null; is_active: boolean; is_placeholder: boolean; created_at: string; criteria_weights: { criterion_code: string; weight: number }[] }
 
@@ -115,17 +117,22 @@ export function Criteria() {
       <div className="split">
         <section className="main card" aria-labelledby="pairs">
           <h2 id="pairs">Which matters more for choosing scholars?</h2>
+          <p className="small muted" style={{ marginTop: 0 }}>Drag each bar toward the criterion that matters more: the middle is equal, the ends are 9 (extremely more important).</p>
           {pairs.map(([i, j]) => {
             const s = v[`${i}|${j}`] ?? 1
             return (
               <div className="pair-row" key={i + j}>
                 <span className={`l ${s > 1 ? 'strong' : 'weak'}`}>{name(i)}</span>
-                <label>
-                  <span className="sr">{name(i)} compared with {name(j)}</span>
-                  <select value={s} onChange={(e) => setV({ ...v, [`${i}|${j}`]: Number(e.target.value) })}>
-                    {SCALE.map(([val, txt]) => <option key={val} value={val}>{txt}</option>)}
-                  </select>
-                </label>
+                <div className="pair-slider">
+                  <input type="range" min={-8} max={8} step={1} value={toPos(s)}
+                    aria-label={`${name(i)} (left) compared with ${name(j)} (right)`}
+                    aria-valuetext={s === 1 ? 'Equally important' : `${s > 1 ? name(i) : name(j)} ${STRENGTH[Math.abs(s)]} (${Math.abs(s)})`}
+                    onChange={(e) => setV({ ...v, [`${i}|${j}`]: fromPos(Number(e.target.value)) })} />
+                  <div className="pair-ticks" aria-hidden="true">{TICKS.map((t, k) => <span key={k}>{t}</span>)}</div>
+                  <div className="pair-say">
+                    {s === 1 ? 'Equally important (1)' : <><strong>{s > 1 ? i : j}</strong> {STRENGTH[Math.abs(s)]} ({Math.abs(s)})</>}
+                  </div>
+                </div>
                 <span className={s < 0 ? 'strong' : 'weak'}>{name(j)}</span>
               </div>
             )
