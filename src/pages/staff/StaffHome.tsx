@@ -50,6 +50,14 @@ export function StaffHome() {
         )}
       </div>
 
+      {cycle.selection_finalized_at && (
+        <div className="banner info" role="note">
+          This cycle is finished: the final selection was made {new Date(cycle.selection_finalized_at).toLocaleString('en-PH')}
+          ({statusCount('approved')} approved, {statusCount('waitlisted')} waitlisted), so nothing is waiting for review here.
+          See <Link to="/staff/ranking">Ranking</Link> or <Link to="/staff/reports">Reports</Link>, or pick another cycle on the left.
+        </div>
+      )}
+
       <div className="grid four" style={{ marginBottom: 0 }}>
         <div className="stat"><div className="stat-value">{rows?.length ?? '…'}</div><div className="stat-label">Submitted applications</div></div>
         <div className="stat warn"><div className="stat-value">{count('document')}</div><div className="stat-label">Documents to check</div></div>

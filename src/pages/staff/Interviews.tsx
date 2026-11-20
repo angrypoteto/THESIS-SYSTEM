@@ -219,7 +219,7 @@ export function Interviews() {
                     <tr key={r.application_id}>
                       <td><input type="checkbox" aria-label={`Select ${r.full_name}`} checked={picked.has(r.application_id)} onChange={() => toggle(r.application_id)} /></td>
                       <td>{r.rank ?? '—'}</td>
-                      <td><Link to={`/staff/applicants/${r.application_id}`}>{r.full_name}</Link><div className="small muted">{r.student_number ?? ''}</div></td>
+                      <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/interviews' }}>{r.full_name}</Link><div className="small muted">{r.student_number ?? ''}</div></td>
                       <td>{r.status.replace('_', ' ')}</td>
                       <td>
                         {a ? <>{when(a.slot_start)}<div className="small muted">{a.location ?? ''}</div></>

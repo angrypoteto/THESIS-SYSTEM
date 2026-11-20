@@ -178,7 +178,7 @@ function RowWithLine({ r, showLine }: { r: Result; showLine: boolean }) {
     <>
       <tr style={{ color: r.recommended ? undefined : 'var(--muted)' }}>
         <td><strong>{r.rank}</strong></td>
-        <td><Link to={`/staff/applicants/${r.application_id}`} style={{ fontWeight: 600 }}>{r.applications?.applicants?.profiles?.full_name ?? 'Applicant'}</Link></td>
+        <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/ranking' }} style={{ fontWeight: 600 }}>{r.applications?.applicants?.profiles?.full_name ?? 'Applicant'}</Link></td>
         <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="bar" style={{ width: Math.max(4, Number(r.closeness) * 100) }} />{Number(r.closeness).toFixed(3)}</span></td>
         <td>{v.C1 != null ? `PHP ${Math.round(v.C1).toLocaleString()}` : '—'}</td>
         <td>{v.C2 != null ? Number(v.C2).toFixed(2) : '—'}</td>

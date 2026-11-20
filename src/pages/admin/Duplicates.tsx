@@ -111,7 +111,7 @@ function CaseCard({ c, isAdmin, onDone, onError }: { c: Case; isAdmin: boolean; 
             {row('Mobile', (x) => x.mobile, (x) => x.mobile?.replace(/\D/g, '').slice(-10))}
             {row('Barangay · course', (x) => [x.barangay, x.course].filter(Boolean).join(' · ') || null)}
             {row('Signed up', (x) => date(x.created_at))}
-            {row('Application', (x) => x.application ? <Link to={`/staff/applicants/${x.application.id}`}>{x.application.status.replace('_', ' ')}{x.application.applicant_no ? ` · ${x.application.applicant_no}` : ''}</Link> : 'none yet')}
+            {row('Application', (x) => x.application ? <Link to={`/staff/applicants/${x.application.id}`} state={{ from: '/admin/duplicates' }}>{x.application.status.replace('_', ' ')}{x.application.applicant_no ? ` · ${x.application.applicant_no}` : ''}</Link> : 'none yet')}
             {row('Account', (x) => (c.kept === x.id ? 'kept' : x.status === 'disabled' ? 'disabled' : 'active'))}
           </tbody>
         </table>

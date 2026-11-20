@@ -275,7 +275,7 @@ export function ExamResults() {
                   const preview = !absent && value !== '' && Number(value) >= 0 && Number(value) <= 100 ? combined(Number(value), r.gwa_converted) : null
                   return (
                     <tr key={r.id} style={dirty ? { background: 'var(--blue-tint)' } : undefined}>
-                      <td><Link to={`/staff/applicants/${r.id}`}>{name(r)}</Link></td>
+                      <td><Link to={`/staff/applicants/${r.id}`} state={{ from: '/staff/exam' }}>{name(r)}</Link></td>
                       <td>{sn(r) || '—'}</td>
                       <td className="small">{r.applicants?.course ?? '—'}</td>
                       <td className="num">{r.gwa_converted ?? '—'}%</td>
@@ -366,7 +366,7 @@ function RankRow({ r, rank, line, finalized }: { r: Row; rank: number; line: boo
     <>
       <tr>
         <td><strong>{rank}</strong></td>
-        <td><Link to={`/staff/applicants/${r.id}`}>{name(r)}</Link><div className="small muted">{sn(r)}</div></td>
+        <td><Link to={`/staff/applicants/${r.id}`} state={{ from: '/staff/exam' }}>{name(r)}</Link><div className="small muted">{sn(r)}</div></td>
         <td className="small">{r.applicants?.course ?? '—'}</td>
         <td className="num">{r.exam_score}%</td>
         <td className="num">{r.gwa_converted}%</td>
