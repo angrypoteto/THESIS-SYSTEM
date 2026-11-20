@@ -415,6 +415,7 @@ label.inline select { width: auto; }
 
 .partner-band { display: grid; grid-template-columns: 1fr 56px 1fr; align-items: stretch; gap: 0;
   margin: 28px 0; }
+.partner-band.single { grid-template-columns: 1fr; }   /* only the city card since the RTU card was removed (2026-11-21) */
 .partner-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
   display: flex; gap: 16px; align-items: flex-start; }
 .partner-card h3 { font-size: 17px; margin: 2px 0 6px; }
