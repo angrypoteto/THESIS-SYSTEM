@@ -740,3 +740,4 @@ label.inline select { width: auto; }
 .dup-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
 .dup-same-person { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .dup-same-person select { min-height: var(--target); }
+.dup-same-person .field-error { flex-basis: 100%; margin-top: 0; }
