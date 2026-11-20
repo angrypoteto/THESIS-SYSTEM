@@ -44,12 +44,12 @@ const dt = (v: string | null) => (v ? new Date(v).toLocaleString('en-PH', { time
 /** CSV that Excel opens directly (UTF-8 BOM, CRLF). Sex is included for the fairness report, never used to rank. */
 export function reportCsv(rows: ReportRow[]): string {
   const head = ['Rank', 'Closeness', 'Recommended', 'Student no.', 'Name', 'Sex', 'Barangay', 'Course', 'Year level',
-    'Status', 'Exam', 'Category', 'Income per person (PHP)', 'SES index', 'Household size', 'GWA (%)', 'Distance (km)',
+    'Status', 'Exam', 'Category', 'Income per person (PHP)', 'SES index', 'Household size', 'GWA (%)',
     'Allowance (PHP)', 'Flags', 'Interview', 'Interview status', 'Decided', 'Override', 'Decision reason', 'Submitted']
   const lines = rows.map((r) => [
     r.rank, r.closeness != null ? Number(r.closeness).toFixed(4) : null, r.recommended == null ? '' : r.recommended ? 'yes' : 'no',
     r.student_number, r.full_name, r.sex, r.barangay, r.course, r.year_level, STATUS_LABEL[r.status] ?? r.status, r.exam_result,
-    r.category, r.per_capita_income, r.ses_index, r.household_size, r.gwa, r.distance_km, r.pay_tier_amount,
+    r.category, r.per_capita_income, r.ses_index, r.household_size, r.gwa, r.pay_tier_amount,
     (r.flags ?? []).map((f) => f.code).join(' '), dt(r.interview_at), r.interview_status, dt(r.decided_at),
     r.decision_override == null ? '' : r.decision_override ? 'yes' : 'no', r.decision_reason, dt(r.submitted_at),
   ].map(cell).join(','))

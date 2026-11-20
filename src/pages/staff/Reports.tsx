@@ -105,7 +105,7 @@ export function Reports() {
           <table className="table report-table" style={{ minWidth: 1100 }}>
             <thead>
               <tr><th>Rank</th><th>Applicant</th><th>Barangay</th><th className="num">Income / person</th><th className="num">SES</th>
-                <th className="num">Household</th><th className="num">GWA</th><th className="num">Distance</th><th className="num">Closeness</th>
+                <th className="num">Household</th><th className="num">GWA</th><th className="num">Closeness</th>
                 <th>Status</th><th className="num">Allowance</th><th>Interview</th></tr>
             </thead>
             <tbody>
@@ -118,14 +118,13 @@ export function Reports() {
                   <td className="num">{r.ses_index != null ? Number(r.ses_index).toFixed(2) : '—'}</td>
                   <td className="num">{r.household_size ?? '—'}</td>
                   <td className="num">{r.gwa != null ? `${r.gwa}%` : '—'}</td>
-                  <td className="num">{r.distance_km != null ? `${r.distance_km} km` : '—'}</td>
                   <td className="num">{r.closeness != null ? Number(r.closeness).toFixed(3) : '—'}</td>
                   <td>{STATUS_LABEL[r.status] ?? r.status}{r.decision_override ? <span className="pill warn small" style={{ marginLeft: 6 }}>override</span> : null}</td>
                   <td className="num">{r.status === 'approved' ? peso(r.pay_tier_amount) : '—'}</td>
                   <td>{r.interview_at ? `${new Date(r.interview_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} · ${r.interview_status?.replace('_', ' ')}` : '—'}</td>
                 </tr>
               ))}
-              {rows && shown.length === 0 && <tr><td colSpan={12} className="muted" style={{ padding: 24 }}>{view === 'ranked' ? 'No ranking run for this cycle yet.' : 'No submitted applications yet.'}</td></tr>}
+              {rows && shown.length === 0 && <tr><td colSpan={11} className="muted" style={{ padding: 24 }}>{view === 'ranked' ? 'No ranking run for this cycle yet.' : 'No submitted applications yet.'}</td></tr>}
             </tbody>
           </table>
         </div>
