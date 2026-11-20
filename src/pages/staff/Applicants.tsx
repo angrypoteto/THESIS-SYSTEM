@@ -57,7 +57,7 @@ export function Applicants() {
                 <td>{r.household_size ?? '—'}</td>
                 <td>{r.gwa_converted != null ? `${r.gwa_converted}%` : '—'}</td>
                 <td><span className={`pill small ${STATUS_PILL[r.status] ?? ''}`}>{r.status.replace('_', ' ')}</span></td>
-                <td className="num"><Link className="btn btn-outline" to={`/staff/applicants/${r.id}`}>Open</Link></td>
+                <td className="num"><Link className="btn btn-outline" to={`/staff/applicants/${r.id}`} state={{ from: '/staff/applicants' }}>Open</Link></td>
               </tr>
             ))}
             {rows && !shown.length && <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>No applicants match.</td></tr>}

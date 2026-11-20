@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { flagText, GATE_LABEL, labelDoc, STAFF_APP_SELECT, type StaffAppRow } from '../../lib/staff'
 import { OfficeFormsCard } from './OfficeFormsCard'
 import { useRequired } from '../../components/useRequired'
+import { useBack } from '../../lib/backLink'
 
 const STEP_GATES: Record<1 | 2, string[]> = {
   1: ['enrollment', 'year_level', 'grades'],
@@ -23,6 +24,7 @@ const FEEDBACK_LABEL: Record<string, string> = { in_need: 'In need', not_in_need
 
 /** Design screen 7: gates, need estimate with reasons, ranking values, and the person's decision. */
 export function ApplicantFile() {
+  const back = useBack()
   const { id } = useParams()
   const { refreshCounts } = useStaff()
   const [app, setApp] = useState<StaffAppRow | null>(null)
@@ -98,7 +100,7 @@ export function ApplicantFile() {
     <>
       <div className="page-head sticky-head">
         <div>
-          <Link to="/staff" className="back">← Back to queue</Link>
+          <Link to={back.to} className="back">← {back.label}</Link>
           <h1>{p?.full_name}</h1>
           <p>
             {p?.student_number} · {app.applicants?.course ?? '—'}, incoming year {app.applicants?.year_level ?? '—'} · {app.applicants?.schools?.name ?? '—'} ·{' '}
@@ -129,7 +131,7 @@ export function ApplicantFile() {
                   <tr key={d.id}>
                     <td>{labelDoc(d.type_code)}</td>
                     <td><span className={`status-dot ${d.verification_status}`} /> {d.verification_status}</td>
-                    <td className="num"><Link className={d.verification_status === 'pending' || d.verification_status === 'review' ? 'btn' : 'btn btn-plain'} to={`/staff/documents/${d.id}`}>{d.verification_status === 'pending' || d.verification_status === 'review' ? 'Check' : 'View'}</Link></td>
+                    <td className="num"><Link className={d.verification_status === 'pending' || d.verification_status === 'review' ? 'btn' : 'btn btn-plain'} to={`/staff/documents/${d.id}`} state={back.state}>{d.verification_status === 'pending' || d.verification_status === 'review' ? 'Check' : 'View'}</Link></td>
                   </tr>
                 ))}
               </tbody>
@@ -243,7 +245,7 @@ export function ApplicantFile() {
           <section className="card" aria-labelledby="gates">
             <h2 id="gates">Eligibility gates</h2>
             {gates.length === 0 ? (
-              <p className="muted">Not run yet.{!docsDone && ' Check every document first.'}</p>
+              <p className="muted">{docsDone ? 'Not run yet.' : 'Not run yet. They run by themselves once every document is accepted.'}</p>
             ) : (
               <ul className="checklist">
                 {STEP_GATES[app.stage ?? 1].map((code) => {
@@ -259,10 +261,13 @@ export function ApplicantFile() {
                 })}
               </ul>
             )}
-            <button className={`btn btn-block ${gates.length ? 'btn-outline' : ''}`} disabled={busy || !docsDone || !['submitted', 'eligible', 'ineligible', 'exam_eligible'].includes(app.status)}
-              onClick={() => act(async () => await supabase.rpc('evaluate_gates', { p_app: app.id }), 'Gates evaluated.')}>
-              {gates.length ? 'Run the gates again' : app.stage === 2 ? 'Run eligibility gates' : 'Run step 1 screening gates'}
-            </button>
+            {/* gates run by themselves when the last document is accepted; the button is for re-checking after a fix */}
+            {docsDone && ['submitted', 'under_review', 'eligible', 'ineligible', 'exam_eligible'].includes(app.status) && (
+              <button className={`btn btn-block ${gates.length ? 'btn-outline' : ''}`} aria-busy={busy} disabled={busy}
+                onClick={() => act(async () => await supabase.rpc('evaluate_gates', { p_app: app.id }), 'Gates evaluated.')}>
+                {gates.length ? 'Run the gates again' : app.stage === 2 ? 'Run eligibility gates' : 'Run step 1 screening gates'}
+              </button>
+            )}
           </section>
 
           {result && (

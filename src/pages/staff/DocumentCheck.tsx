@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { supabase } from '../../lib/supabase'
 import { labelDoc } from '../../lib/staff'
@@ -42,6 +42,7 @@ const FIELD_LABEL: Record<string, string> = {
 
 /** Design screen 6: the document beside what it should say, and the person's decision with a reason. */
 export function DocumentCheck() {
+  const location = useLocation()
   const { id } = useParams()
   const navigate = useNavigate()
   const { refreshCounts } = useStaff()
@@ -111,7 +112,7 @@ export function DocumentCheck() {
     setBusy(false)
     if (error) return setError(error.message)
     refreshCounts()
-    navigate(`/staff/applicants/${doc.application_id}`)
+    navigate(`/staff/applicants/${doc.application_id}`, { state: location.state })
   }
 
   if (!doc) return <p className="muted">Loading…</p>
@@ -132,7 +133,7 @@ export function DocumentCheck() {
     <>
       <div className="page-head sticky-head">
         <div>
-          <Link to={`/staff/applicants/${doc.application_id}`} className="back">← Back to the applicant</Link>
+          <Link to={`/staff/applicants/${doc.application_id}`} state={location.state} className="back">← Back to the applicant</Link>
           <h1>{labelDoc(doc.type_code).replace(/^./, (c) => c.toUpperCase())} · {a?.profiles?.full_name}</h1>
           <p>Uploaded {new Date(doc.uploaded_at).toLocaleString('en-PH')} · {isPdf ? 'PDF' : 'photo'}, {Math.round((doc.size_bytes ?? 0) / 1024)} KB</p>
         </div>

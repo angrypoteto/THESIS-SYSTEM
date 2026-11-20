@@ -113,7 +113,7 @@ export function Reports() {
               {shown.map((r) => (
                 <tr key={r.application_id}>
                   <td>{r.rank ?? '—'}{r.recommended ? <span className="pill ok small" style={{ marginLeft: 6 }}>slot</span> : null}</td>
-                  <td><Link to={`/staff/applicants/${r.application_id}`}>{r.full_name}</Link><div className="small muted">{r.student_number ?? ''}{r.course ? ` · ${r.course}` : ''}</div></td>
+                  <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/reports' }}>{r.full_name}</Link><div className="small muted">{r.student_number ?? ''}{r.course ? ` · ${r.course}` : ''}</div></td>
                   <td>{r.barangay ?? '—'}</td>
                   <td className="num">{peso(r.per_capita_income)}</td>
                   <td className="num">{r.ses_index != null ? Number(r.ses_index).toFixed(2) : '—'}</td>
