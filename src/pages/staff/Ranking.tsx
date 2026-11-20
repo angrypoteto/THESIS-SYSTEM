@@ -1,7 +1,6 @@
 import { useRequired } from '../../components/useRequired'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../auth/AuthProvider'
 import { useStaff } from '../../components/StaffLayout'
 import { supabase } from '../../lib/supabase'
 
@@ -25,9 +24,7 @@ function kendall(a: Map<string, number>, b: Map<string, number>): number | null 
 
 /** Design screen 8. */
 export function Ranking() {
-  const { cycle, reloadCycles } = useStaff()
-  const { profile } = useAuth()
-  const isAdmin = profile?.role === 'admin'
+  const { cycle } = useStaff()
   const [runs, setRuns] = useState<Run[]>([])
   const [runId, setRunId] = useState<number | null>(null)
   const [results, setResults] = useState<Result[]>([])
@@ -35,11 +32,13 @@ export function Ranking() {
   const [placeholder, setPlaceholder] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
-  const [confirming, setConfirming] = useState(false)
   const cycleId = cycle?.id
 
   const loadRuns = useCallback(async () => {
     if (cycleId == null) return
+    // ranked automatically (client, 2026-11-21): re-ranks only if something changed since the last ranking
+    const auto = await supabase.rpc('ensure_current_ranking', { p_cycle: cycleId })
+    if (auto.error) setMsg({ kind: 'error', text: auto.error.message })
     const [{ data }, ws] = await Promise.all([
       supabase.from('ranking_runs').select('id,method,is_official,applicant_count,started_at,weight_set_id').eq('cycle_id', cycleId).order('started_at', { ascending: false }),
       supabase.from('criteria_weight_sets').select('is_placeholder').eq('is_active', true).maybeSingle(),
@@ -81,17 +80,16 @@ export function Ranking() {
     }
   }, [runId, runs])
 
-  async function run(method: 'topsis' | 'saw', official: boolean) {
+  /** SAW baseline for comparison only (the TOPSIS ranking itself runs automatically) */
+  async function compareSaw() {
     if (cycleId == null) return
     setBusy(true)
     setMsg(null)
-    const { data, error } = await supabase.rpc('run_ranking', { p_cycle: cycleId, p_method: method, p_official: official })
+    const { error } = await supabase.rpc('run_ranking', { p_cycle: cycleId, p_method: 'saw', p_official: false })
     setBusy(false)
-    setConfirming(false)
     if (error) return setMsg({ kind: 'error', text: error.message })
-    setMsg({ kind: 'ok', text: official ? 'Official ranking saved. It cannot be run again for this cycle.' : `${method.toUpperCase()} run #${data} saved.` })
+    setMsg({ kind: 'ok', text: 'SAW comparison saved; Kendall tau shows how close the two orders are.' })
     await loadRuns()
-    if (method === 'topsis') setRunId(data as number)
   }
 
   const current = runs.find((r) => r.id === runId)
@@ -99,27 +97,21 @@ export function Ranking() {
   const slots = cycle?.slots ?? 0
   const recommended = results.filter((r) => r.recommended)
   const total = recommended.reduce((s, r) => s + Number(r.pay_tier_amount ?? 0), 0)
+  const deadline = cycle?.step2_closes_at ? new Date(cycle.step2_closes_at) : null
+  const fmt = (d: Date) => d.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Ranking · {cycle?.name}</h1>
-          <p>{current ? `Run #${current.id} · ${current.method.toUpperCase()}${current.method === 'topsis' ? ' with AHP weights' : ' baseline'} · ${current.applicant_count} eligible · ${slots} slots · ${current.is_official ? 'official' : 'not official'}` : 'No run yet for this cycle.'}</p>
+          <p>{current
+            ? `${current.is_official ? 'Official ranking' : current.method === 'saw' ? 'SAW comparison' : 'Ranked automatically'} · ${current.applicant_count} eligible · ${slots} slots · updated ${new Date(current.started_at).toLocaleString('en-PH')}`
+            : 'Nobody is eligible for ranking yet.'}</p>
         </div>
-        {isAdmin && (
+        {!hasOfficial && results.length > 0 && (
           <div className="actions" style={{ marginTop: 0 }}>
-            <button className="btn btn-plain" disabled={busy || hasOfficial} onClick={() => run('saw', false)}>Compare with SAW</button>
-            <button className="btn btn-lg" disabled={busy || hasOfficial} onClick={() => run('topsis', false)}>Run ranking</button>
-            <span className="divider-v" aria-hidden="true" />
-            {confirming ? (
-              <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                <button className="btn btn-danger-outline" disabled={busy} onClick={() => run('topsis', true)}>Yes, make it official</button>
-                <button className="btn-danger-link" onClick={() => setConfirming(false)}>Cancel</button>
-              </span>
-            ) : (
-              <button className="btn btn-danger-outline" disabled={busy || hasOfficial} onClick={() => setConfirming(true)}>Make official…</button>
-            )}
+            <button className="btn btn-plain" aria-busy={busy} disabled={busy} onClick={compareSaw}>Compare with SAW</button>
           </div>
         )}
       </div>
@@ -127,10 +119,21 @@ export function Ranking() {
       {placeholder && (
         <div className="banner warn" role="note">
           The active weights are the Build Plan's placeholder judgments. Replace them with the office staff's AHP judgments
-          (Criteria &amp; weights) before the official run. An official run cannot be repeated for this cycle.
+          (Criteria &amp; weights) before step 2 closes: the final selection uses the weights active at that moment.
         </div>
       )}
-      {confirming && <div className="banner warn" role="alert">Making this official ranks every eligible applicant once, marks them as ranked and locks the cycle's ranking. Staff then approve or waitlist each one.</div>}
+      {!hasOfficial && (deadline ? (
+        <div className="banner info" role="note">
+          This ranking updates by itself as applicants become eligible. The final selection is automatic: after step 2 closes
+          ({fmt(deadline)}) and every step-2 application has been checked, the top {slots} are approved and the rest are waitlisted.
+          {deadline.getTime() < Date.now() && ' Step 2 has closed; the selection is made within the hour once no application is still waiting for checking.'}
+        </div>
+      ) : (
+        <div className="banner warn" role="note">
+          No step 2 deadline is set for this cycle, so the final selection cannot happen yet. Set the deadline on Cycles &amp; slots:
+          the selection is made automatically after it.
+        </div>
+      ))}
 
       {runs.length > 1 && (
         <label className="field" style={{ maxWidth: 360 }}>Show run
@@ -157,11 +160,11 @@ export function Ranking() {
             {results.map((r, i) => (
               <RowWithLine key={r.application_id} r={r} showLine={i === slots - 1 && results.length > slots} />
             ))}
-            {!results.length && <tr><td colSpan={9} className="muted" style={{ padding: 24 }}>{runs.length ? 'This run has no rows.' : isAdmin ? 'Run the ranking once eligible applicants exist.' : 'An admin runs the ranking.'}</td></tr>}
+            {!results.length && <tr><td colSpan={9} className="muted" style={{ padding: 24 }}>{runs.length ? 'This run has no rows.' : 'No eligible applicants yet. The ranking appears here by itself as soon as applicants are cleared in step 2.'}</td></tr>}
           </tbody>
         </table>
       </div>
-      {hasOfficial && cycleId != null && <Waitlist cycleId={cycleId} slots={slots} isAdmin={isAdmin} finalizedAt={cycle?.selection_finalized_at ?? null} onFinalized={reloadCycles} />}
+      {hasOfficial && cycleId != null && <Waitlist cycleId={cycleId} slots={slots} finalizedAt={cycle?.selection_finalized_at ?? null} />}
 
       <p className="small muted" style={{ margin: 0 }}>Ties are broken by lower income per person, then higher GWA, then earlier submission. The whole pool is ranked in one stored run, so the order is reproducible.</p>
     </>
@@ -188,9 +191,8 @@ function RowWithLine({ r, showLine }: { r: Result; showLine: boolean }) {
 }
 
 /** After the official ranking: open slots (slots minus approved) and promotion of the best-ranked waitlisted applicant. */
-function Waitlist({ cycleId, slots, isAdmin, finalizedAt, onFinalized }: { cycleId: number; slots: number; isAdmin: boolean; finalizedAt: string | null; onFinalized: () => void }) {
+function Waitlist({ cycleId, slots, finalizedAt }: { cycleId: number; slots: number; finalizedAt: string | null }) {
   const [ranked, setRanked] = useState<number | null>(null)
-  const [confirm, setConfirm] = useState(false)
   const [approved, setApproved] = useState<number | null>(null)
   const [waiting, setWaiting] = useState<number | null>(null)
   const [reason, setReason] = useState('')
@@ -225,42 +227,12 @@ function Waitlist({ cycleId, slots, isAdmin, finalizedAt, onFinalized }: { cycle
     return data
   }
 
-  async function finalize() {
-    setBusy(true)
-    setMsg(null)
-    const { data, error } = await supabase.rpc('finalize_selection', { p_cycle: cycleId })
-    setBusy(false)
-    setConfirm(false)
-    if (error) return setMsg({ kind: 'error', text: error.message })
-    const d = data as { approved: number; waitlisted: number }
-    setMsg({ kind: 'ok', text: `Final selection done: ${d.approved} approved, ${d.waitlisted} waitlisted. Everyone was emailed.` })
-    load()
-    onFinalized()
-  }
-
   const open = approved == null ? null : Math.max(0, slots - approved)
   return (
     <section className="card" aria-labelledby="waitlist">
       <h2 id="waitlist">Final selection</h2>
-      {!finalizedAt && (
-        <div className="banner info" style={{ marginBottom: 12 }}>
-          The system selects the final beneficiaries from this ranking: the top-ranked applicants up to the {slots} slots are approved,
-          the rest are waitlisted, and everyone is emailed. {ranked ?? '…'} ranked applicant{ranked === 1 ? '' : 's'} waiting.
-          {isAdmin ? (
-            <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              {confirm ? (
-                <>
-                  <button className="btn btn-danger-outline" disabled={busy} onClick={finalize}>Yes, select and email everyone</button>
-                  <button type="button" className="btn-danger-link" onClick={() => setConfirm(false)}>Cancel</button>
-                </>
-              ) : (
-                <button className="btn" disabled={busy || !ranked} onClick={() => setConfirm(true)}>Finalize selection…</button>
-              )}
-            </div>
-          ) : <> An admin finalizes the selection.</>}
-        </div>
-      )}
-      {finalizedAt && <p className="small muted" style={{ marginTop: 0 }}>Selection finalized {new Date(finalizedAt).toLocaleString('en-PH')}. A slot freed by a withdrawal goes to the next on the waitlist automatically. A change to one applicant needs a written reason on their file and is logged as an override.</p>}
+      {!finalizedAt && <p className="small muted" style={{ marginTop: 0 }}>The ranking is official; the system is selecting the final beneficiaries ({ranked ?? '…'} ranked applicant{ranked === 1 ? '' : 's'} waiting).</p>}
+      {finalizedAt && <p className="small muted" style={{ marginTop: 0 }}>Selection finalized automatically {new Date(finalizedAt).toLocaleString('en-PH')}. A slot freed by a withdrawal goes to the next on the waitlist automatically. A change to one applicant needs a written reason on their file and is logged as an override.</p>}
       <p style={{ marginTop: 0 }}>
         <strong>{approved ?? '…'}</strong> of {slots} slots approved · <strong>{open ?? '…'}</strong> open · <strong>{waiting ?? '…'}</strong> on the waitlist
       </p>

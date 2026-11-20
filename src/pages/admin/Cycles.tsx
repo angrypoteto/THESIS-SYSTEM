@@ -161,7 +161,7 @@ export function Cycles() {
           <label className="field">
             Deadline
             <input {...bad('step2_closes_at')} type="datetime-local" value={f.step2_closes_at} onChange={set('step2_closes_at')} />{err('step2_closes_at')}
-            <span className="muted small">Leave empty to keep step 2 open until the cycle is ranked.</span>
+            <span className="muted small">The final selection is made automatically after this deadline, once every step-2 application has been checked. Leave empty to hold the selection.</span>
           </label>
           <h3>Selection</h3>
           <label className="field">
