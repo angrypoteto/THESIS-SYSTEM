@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../auth/AuthProvider'
 import { useStaff } from '../../components/StaffLayout'
 import { matchScores, textToRows, type Cell, type MatchResult } from '../../lib/examImport'
 import { download } from '../../lib/report'
@@ -32,12 +31,10 @@ const sn = (r: Row) => r.applicants?.profiles?.student_number ?? ''
  * Qualifying exam (client flow v3, screen v2 2026-11-18). Every applicant cleared for the exam is listed with a
  * score box. Staff type scores (or tick Absent), or upload RTU's list (Excel or CSV) and the scores are filled in by
  * student number; one Save records them all. Combined result = 70% exam + 30% GWA. When every score is in, the
- * admin finalizes: the top N proceed to step 2 and are emailed their Applicant ID.
+ * cut-off is automatic after the exam results date: the top N proceed to step 2 and are emailed their Applicant ID.
  */
 export function ExamResults() {
-  const { cycle, reloadCycles } = useStaff()
-  const { profile } = useAuth()
-  const isAdmin = profile?.role === 'admin'
+  const { cycle } = useStaff()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [edits, setEdits] = useState<Record<string, Edit>>({})
   const [search, setSearch] = useState('')
@@ -47,7 +44,6 @@ export function ExamResults() {
   const [fileResult, setFileResult] = useState<(MatchResult & { file: string }) | null>(null)
   const [saveSummary, setSaveSummary] = useState<ImportSummary | null>(null)
   const [paste, setPaste] = useState('')
-  const [confirming, setConfirming] = useState(false)
   const cycleId = cycle?.id
 
   const load = useCallback(async () => {
@@ -159,20 +155,6 @@ export function ExamResults() {
     const q = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
     const lines = takers.map((r) => [sn(r), name(r), r.applicants?.course ?? '', isAbsent(r) ? 'absent' : r.exam_score ?? ''].map(q).join(','))
     download(`exam-takers-${cycle?.name.replace(/[^\w-]+/g, '_')}.csv`, '﻿' + ['Student number,Name,Course,Score', ...lines].join('\r\n') + '\r\n')
-  }
-
-  async function finalize() {
-    if (!cycleId) return
-    setBusy('finalize')
-    setError(null)
-    const { data, error } = await supabase.rpc('finalize_exam_ranking', { p_cycle: cycleId })
-    setBusy(null)
-    setConfirming(false)
-    if (error) return setError(error.message)
-    const d = data as { proceed: number; not_proceed: number }
-    setOk(`Ranking finalized: ${d.proceed} proceed to step 2 and were emailed their Applicant ID; ${d.not_proceed} did not qualify and were emailed their result.`)
-    reloadCycles()
-    load()
   }
 
   if (!cycle) return <p className="muted">No program cycle yet. An admin creates one under Cycles &amp; slots.</p>
@@ -321,26 +303,26 @@ export function ExamResults() {
       <section className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>Academic and examination ranking{finalized ? ' (final)' : ' (preview)'}</h2>
-          {!finalized && isAdmin && (
-            confirming ? (
-              <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                <button className="btn btn-danger-outline" disabled={busy === 'finalize'} onClick={finalize}>Yes, finalize and email everyone</button>
-                <button className="btn-danger-link" onClick={() => setConfirming(false)}>Cancel</button>
-              </span>
-            ) : (
-              <button className="btn btn-danger-outline" disabled={ranked.length === 0 || noScore.length > 0 || changed.length > 0} onClick={() => setConfirming(true)}>Finalize ranking…</button>
-            )
-          )}
         </div>
-        {!finalized && (
-          <p className="small muted">
-            {changed.length > 0 ? 'Save your changes first. '
-              : noScore.length > 0 ? `${noScore.length} exam taker${noScore.length === 1 ? ' has' : 's have'} no score yet: enter a score or tick Absent before finalizing. `
-              : ranked.length > 0 ? (isAdmin ? 'All scores are in. ' : 'All scores are in. An admin finalizes the ranking. ') : ''}
-            Finalizing can be done once per cycle: the top {take} get an Applicant ID and proceed to step 2, the others are told they did not qualify.
-          </p>
-        )}
-        {confirming && <div className="banner warn" role="alert">This emails every exam taker their result and cannot be run again for this cycle. A score can still be corrected before you confirm.</div>}
+        {!finalized && (() => {
+          const due = cycle.exam_results_final_at ? new Date(cycle.exam_results_final_at) : null
+          const todo = changed.length > 0 ? 'Save your changes first. '
+            : noScore.length > 0 ? `${noScore.length} exam taker${noScore.length === 1 ? ' has' : 's have'} no score yet: enter a score or tick Absent. `
+            : ranked.length > 0 ? 'All scores are in. ' : ''
+          return due ? (
+            <div className="banner info" role="note">
+              {todo}The cut-off is automatic: after {due.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })}, once every
+              exam taker has a score or is marked absent, the top {take} get an Applicant ID and proceed to step 2 (they are emailed);
+              the others see that they did not proceed. Scores can be corrected until then.
+              {due.getTime() < Date.now() && noScore.length === 0 && changed.length === 0 && ranked.length > 0 && ' The date has passed: the cut-off is made within the hour.'}
+            </div>
+          ) : (
+            <div className="banner warn" role="note">
+              {todo}No exam results date is set for this cycle, so the cut-off cannot happen yet. Set &ldquo;Exam results final on&rdquo; on Cycles &amp; slots:
+              the top {take} then proceed to step 2 automatically after that date.
+            </div>
+          )
+        })()}
         {ranked.length === 0 && <p className="muted">The ranking appears here as soon as scores are saved.</p>}
         {ranked.length > 0 && (
           <div style={{ overflowX: 'auto' }}>

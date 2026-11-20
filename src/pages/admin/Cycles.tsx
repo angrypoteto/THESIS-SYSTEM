@@ -10,6 +10,7 @@ type Form = {
   opens_at: string
   closes_at: string
   exam_at: string
+  exam_results_final_at: string
   exam_venue: string
   step2_closes_at: string
   slots: string
@@ -35,13 +36,13 @@ const toLocal = (iso: string | null) => {
 const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null)
 
 const blank = (): Form => ({
-  name: '', school_year: '', term: '1st semester', opens_at: '', closes_at: '', exam_at: '', exam_venue: 'Rizal Technological University, Boni Avenue',
+  name: '', school_year: '', term: '1st semester', opens_at: '', closes_at: '', exam_at: '', exam_venue: 'Rizal Technological University, Boni Avenue', exam_results_final_at: '',
   step2_closes_at: '', slots: '', step2_slots: '', gwa_cutoff: '81', status: 'draft',
 })
 
 const fromCycle = (c: ProgramCycle): Form => ({
   name: c.name, school_year: c.school_year, term: c.term, opens_at: toLocal(c.opens_at), closes_at: toLocal(c.closes_at),
-  exam_at: toLocal(c.exam_at), exam_venue: c.exam_venue ?? '', step2_closes_at: toLocal(c.step2_closes_at),
+  exam_at: toLocal(c.exam_at), exam_venue: c.exam_venue ?? '', exam_results_final_at: toLocal(c.exam_results_final_at), step2_closes_at: toLocal(c.step2_closes_at),
   slots: String(c.slots), step2_slots: c.step2_slots == null ? '' : String(c.step2_slots), gwa_cutoff: String(c.gwa_cutoff), status: c.status,
 })
 
@@ -78,7 +79,9 @@ export function Cycles() {
     if (!f.closes_at) p.closes_at = 'Set the step 1 deadline.'
     else if (f.opens_at && Date.parse(f.closes_at) <= Date.parse(f.opens_at)) p.closes_at = 'The deadline must be after step 1 opens.'
     if (f.exam_at && f.closes_at && Date.parse(f.exam_at) < Date.parse(f.closes_at)) p.exam_at = 'The exam should be after step 1 closes.'
+    if (f.exam_results_final_at && f.exam_at && Date.parse(f.exam_results_final_at) <= Date.parse(f.exam_at)) p.exam_results_final_at = 'The results date must be after the exam.'
     if (f.step2_closes_at && f.exam_at && Date.parse(f.step2_closes_at) <= Date.parse(f.exam_at)) p.step2_closes_at = 'The step 2 deadline must be after the exam.'
+    else if (f.step2_closes_at && f.exam_results_final_at && Date.parse(f.step2_closes_at) <= Date.parse(f.exam_results_final_at)) p.step2_closes_at = 'The step 2 deadline must be after the exam results date.'
     if (f.slots === '' || !(Number(f.slots) >= 1) || !Number.isInteger(Number(f.slots))) p.slots = 'Enter the number of scholars (a whole number, at least 1).'
     if (f.step2_slots !== '' && (!Number.isInteger(Number(f.step2_slots)) || Number(f.step2_slots) < Number(f.slots)))
       p.step2_slots = `Must be a whole number, at least the final slots (${f.slots || 0}).`
@@ -100,7 +103,7 @@ export function Cycles() {
     const row = {
       name: f.name.trim(), school_year: f.school_year.trim(), term: f.term.trim(),
       opens_at: fromLocal(f.opens_at), closes_at: fromLocal(f.closes_at), exam_at: fromLocal(f.exam_at),
-      exam_venue: f.exam_venue.trim() || null, step2_closes_at: fromLocal(f.step2_closes_at),
+      exam_venue: f.exam_venue.trim() || null, exam_results_final_at: fromLocal(f.exam_results_final_at), step2_closes_at: fromLocal(f.step2_closes_at),
       slots: Number(f.slots), step2_slots: f.step2_slots === '' ? null : Number(f.step2_slots),
       gwa_cutoff: Number(f.gwa_cutoff), status: f.status,
     }
@@ -157,11 +160,16 @@ export function Cycles() {
             <label className="field">Date and time<input {...bad('exam_at')} type="datetime-local" value={f.exam_at} onChange={set('exam_at')} />{err('exam_at')}</label>
             <label className="field">Venue<input value={f.exam_venue} onChange={set('exam_venue')} /></label>
           </div>
+          <label className="field">
+            Exam results final on
+            <input {...bad('exam_results_final_at')} type="datetime-local" value={f.exam_results_final_at} onChange={set('exam_results_final_at')} />{err('exam_results_final_at')}
+            <span className="muted small">After this date, once every exam taker has a score or is marked absent, the cut-off is made automatically: the top applicants get an Applicant ID and proceed to step 2. Until then scores can be corrected. Leave empty to hold the cut-off.</span>
+          </label>
           <h3>Step 2: requirements for qualified examinees</h3>
           <label className="field">
             Deadline
             <input {...bad('step2_closes_at')} type="datetime-local" value={f.step2_closes_at} onChange={set('step2_closes_at')} />{err('step2_closes_at')}
-            <span className="muted small">The final selection is made automatically after this deadline, once every step-2 application has been checked. Leave empty to hold the selection.</span>
+            <span className="muted small">The final selection is made automatically after this deadline, once every step-2 application has been checked and every interview is settled. Leave empty to hold the selection.</span>
           </label>
           <h3>Selection</h3>
           <label className="field">

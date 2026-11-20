@@ -28,6 +28,7 @@ export interface ProgramCycle {
   step2_closes_at: string | null
   step2_slots: number | null
   exam_finalized_at: string | null
+  exam_results_final_at: string | null
   selection_finalized_at: string | null
   status: 'draft' | 'open' | 'closed' | 'ranked' | 'finalized'
 }
