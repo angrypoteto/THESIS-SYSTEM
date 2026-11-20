@@ -62,10 +62,20 @@ function CaseCard({ c, isAdmin, onDone, onError }: { c: Case; isAdmin: boolean; 
   const [keep, setKeep] = useState<string>('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  // what is missing after a click: the box turns red with its message (instead of a greyed-out button)
+  const [missing, setMissing] = useState<{ note?: string; keep?: string }>({})
   const [a, b] = c.accounts ?? []
   const same = (f: (x: Account) => unknown) => a && b && f(a) != null && String(f(a)).toLowerCase() === String(f(b)).toLowerCase()
 
   async function resolve(samePerson: boolean) {
+    const m: { note?: string; keep?: string } = {}
+    if (!note.trim()) m.note = 'Write a note first: why you decided (saved to the audit log).'
+    if (samePerson && !keep) m.keep = 'Choose which account to keep.'
+    setMissing(m)
+    if (m.note || m.keep) {
+      document.getElementById(m.note ? `dup-note-${c.id}` : `dup-keep-${c.id}`)?.focus()
+      return
+    }
     setBusy(true)
     const { error } = await supabase.rpc('resolve_duplicate', { p_case: c.id, p_same_person: samePerson, p_keep: samePerson ? keep : null, p_note: note.trim() })
     setBusy(false)
@@ -111,16 +121,22 @@ function CaseCard({ c, isAdmin, onDone, onError }: { c: Case; isAdmin: boolean; 
       {c.status === 'open' && (isAdmin ? (
         <div className="dup-decide">
           <label className="field">Note (required, saved to the audit log)
-            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Checked the IDs: siblings sharing a phone" />
+            <textarea id={`dup-note-${c.id}`} rows={2} value={note} placeholder="e.g. Checked the IDs: siblings sharing a phone"
+              aria-invalid={missing.note ? true : undefined} aria-describedby={missing.note ? `dup-note-err-${c.id}` : undefined}
+              onChange={(e) => { setNote(e.target.value); if (e.target.value.trim()) setMissing((x) => ({ ...x, note: undefined })) }} />
+            {missing.note && <span id={`dup-note-err-${c.id}`} className="field-error" role="alert">{missing.note}</span>}
           </label>
           <div className="dup-actions">
-            <button className="btn btn-plain" disabled={busy || !note.trim()} onClick={() => resolve(false)}>Different people</button>
+            <button className="btn btn-plain" disabled={busy} onClick={() => resolve(false)}>Different people</button>
             <span className="dup-same-person">
-              <select aria-label="Account to keep" value={keep} onChange={(e) => setKeep(e.target.value)}>
+              <select id={`dup-keep-${c.id}`} aria-label="Account to keep" value={keep}
+                aria-invalid={missing.keep ? true : undefined} aria-describedby={missing.keep ? `dup-keep-err-${c.id}` : undefined}
+                onChange={(e) => { setKeep(e.target.value); if (e.target.value) setMissing((x) => ({ ...x, keep: undefined })) }}>
                 <option value="">Same person: keep which account?</option>
                 {[a, b].filter(Boolean).map((x, i) => <option key={x.id} value={x.id}>Keep account {i + 1} ({x.email})</option>)}
               </select>
-              <button className="btn btn-danger-outline" disabled={busy || !note.trim() || !keep} onClick={() => resolve(true)}>Same person: remove the other</button>
+              {missing.keep && <span id={`dup-keep-err-${c.id}`} className="field-error" role="alert">{missing.keep}</span>}
+              <button className="btn btn-danger-outline" disabled={busy} onClick={() => resolve(true)}>Same person: remove the other</button>
             </span>
           </div>
           <p className="small muted" style={{ margin: 0 }}>

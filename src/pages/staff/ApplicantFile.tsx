@@ -4,6 +4,7 @@ import { useStaff } from '../../components/StaffLayout'
 import { supabase } from '../../lib/supabase'
 import { flagText, GATE_LABEL, labelDoc, STAFF_APP_SELECT, type StaffAppRow } from '../../lib/staff'
 import { OfficeFormsCard } from './OfficeFormsCard'
+import { useRequired } from '../../components/useRequired'
 
 const STEP_GATES: Record<1 | 2, string[]> = {
   1: ['enrollment', 'year_level', 'grades'],
@@ -309,12 +310,13 @@ function fmtValue(field: string, v: number | null | undefined): string {
 function OverrideGate({ onSave, busy }: { onSave: (why: string) => void; busy: boolean }) {
   const [open, setOpen] = useState(false)
   const [why, setWhy] = useState('')
+  const need = useRequired(why, 'Write the reason first (saved to the audit log).')
   if (!open) return <button type="button" className="link-button link" onClick={() => setOpen(true)}>Override with a reason</button>
   return (
-    <form className="form" onSubmit={(e: FormEvent) => { e.preventDefault(); if (why.trim()) onSave(why.trim()) }}>
-      <label>Reason (saved to the audit log)<textarea value={why} onChange={(e) => setWhy(e.target.value)} required /></label>
+    <form className="form" noValidate onSubmit={(e: FormEvent) => { e.preventDefault(); if (need.check()) onSave(why.trim()) }}>
+      <label>Reason (saved to the audit log)<textarea {...need.props} value={why} onChange={(e) => setWhy(e.target.value)} />{need.error}</label>
       <div className="actions" style={{ marginTop: 0 }}>
-        <button className="btn" disabled={busy || !why.trim()}>Clear this gate</button>
+        <button className="btn" disabled={busy}>Clear this gate</button>
         <button type="button" className="btn-danger-link" onClick={() => setOpen(false)}>Cancel</button>
       </div>
     </form>
@@ -324,6 +326,7 @@ function OverrideGate({ onSave, busy }: { onSave: (why: string) => void; busy: b
 function Decision({ disabled, recommended, onSave }: { disabled: boolean; recommended: boolean | null; onSave: (d: string, reason: string) => void }) {
   const [decision, setDecision] = useState(recommended === false ? 'waitlisted' : 'approved')
   const [reason, setReason] = useState('')
+  const need = useRequired(reason, 'Write the reason for this decision first.')
   return (
     <section className="card" aria-labelledby="dec">
       <h2 id="dec">Decision</h2>
@@ -333,8 +336,8 @@ function Decision({ disabled, recommended, onSave }: { disabled: boolean; recomm
         {[['approved', 'Approve'], ['waitlisted', 'Waitlist'], ['returned', 'Return for more information'], ['not_selected', 'Not selected']].map(([v, l]) => (
           <label key={v} className="choice"><input type="radio" name="decision" checked={decision === v} onChange={() => setDecision(v)} /> {l}</label>
         ))}
-        <label className="field" style={{ marginTop: 8 }}>Reason (required)<textarea value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-        <button className="btn btn-lg btn-block" disabled={disabled || !reason.trim()} onClick={() => onSave(decision, reason.trim())}>Save decision</button>
+        <label className="field" style={{ marginTop: 8 }}>Reason (required)<textarea {...need.props} value={reason} onChange={(e) => setReason(e.target.value)} />{need.error}</label>
+        <button className="btn btn-lg btn-block" disabled={disabled} onClick={() => need.check() && onSave(decision, reason.trim())}>Save decision</button>
       </fieldset>
     </section>
   )
@@ -344,6 +347,7 @@ function Decision({ disabled, recommended, onSave }: { disabled: boolean; recomm
 function Withdraw({ onSave, busy, approved }: { onSave: (why: string) => void; busy: boolean; approved: boolean }) {
   const [open, setOpen] = useState(false)
   const [why, setWhy] = useState('')
+  const need = useRequired(why, 'Write the reason first (the applicant sees it).')
   return (
     <section className="card" aria-labelledby="withdraw">
       <h2 id="withdraw">Withdraw</h2>
@@ -358,10 +362,11 @@ function Withdraw({ onSave, busy, approved }: { onSave: (why: string) => void; b
       ) : (
         <>
           <label className="field">Reason (shown to the applicant and logged)
-            <textarea rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. Applicant transferred to another school" />
+            <textarea {...need.props} rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. Applicant transferred to another school" />
+            {need.error}
           </label>
           <span style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-danger-outline" disabled={busy || !why.trim()} onClick={() => onSave(why.trim())}>Yes, withdraw</button>
+            <button className="btn btn-danger-outline" disabled={busy} onClick={() => need.check() && onSave(why.trim())}>Yes, withdraw</button>
             <button type="button" className="btn-danger-link" onClick={() => setOpen(false)}>Cancel</button>
           </span>
         </>

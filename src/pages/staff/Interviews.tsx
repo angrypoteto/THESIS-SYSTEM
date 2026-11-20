@@ -1,3 +1,4 @@
+import { useRequired } from '../../components/useRequired'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
@@ -75,6 +76,8 @@ export function Interviews() {
   const shown = (rows ?? []).filter((r) => filter === 'all' || (filter === 'scheduled' ? active.has(r.application_id) : !active.has(r.application_id)))
   const unscheduled = (rows ?? []).filter((r) => !active.has(r.application_id)).length
   const ordered = (rows ?? []).filter((r) => picked.has(r.application_id)) // rows are already in rank order
+  const needStart = useRequired(start, 'Set the date and time of the first interview.')
+  const [needPick, setNeedPick] = useState(false)
 
   function toggle(id: string) {
     const next = new Set(picked)
@@ -154,7 +157,7 @@ export function Interviews() {
           the next ones continue the next working day (Sundays skipped). Ticking someone who already has a slot moves them.
         </p>
         <div className="row">
-          <label className="field">First interview<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+          <label className="field">First interview<input {...needStart.props} type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />{needStart.error}</label>
           <label className="field">Minutes each<input type="number" min={5} max={240} step={5} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} /></label>
           <label className="field">Day ends at<input type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} /></label>
         </div>
@@ -164,7 +167,9 @@ export function Interviews() {
             {ordered.slice(0, 6).map((r, k) => `${r.full_name}: ${preview[k]}`).join(' · ')}{ordered.length > 6 ? ` · and ${ordered.length - 6} more` : ''}
           </p>
         )}
-        <button aria-busy={busy === 'schedule'} className="btn btn-lg" disabled={busy === 'schedule' || ordered.length === 0 || !start} onClick={schedule}>
+        {needPick && ordered.length === 0 && <p className="field-error" role="alert">Tick at least one applicant in the list below first.</p>}
+        <button aria-busy={busy === 'schedule'} className="btn btn-lg" disabled={busy === 'schedule'}
+          onClick={() => { setNeedPick(ordered.length === 0); if (needStart.check() && ordered.length > 0) schedule() }}>
           {busy === 'schedule' ? 'Scheduling…' : `Schedule ${ordered.length || ''} interview${ordered.length === 1 ? '' : 's'} and email them`}
         </button>
       </section>
