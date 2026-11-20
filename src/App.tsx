@@ -1,6 +1,7 @@
 import { Duplicates } from './pages/admin/Duplicates'
 import { Models } from './pages/admin/Models'
 import { Faqs } from './pages/admin/Faqs'
+import { Emails } from './pages/admin/Emails'
 import { CheckEmail, Welcome } from './pages/auth/AfterSignUp'
 import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
@@ -71,6 +72,7 @@ export default function App() {
             <Route path="admin/duplicates" element={<RequireRole roles={['admin']}><Duplicates /></RequireRole>} />
             <Route path="admin/models" element={<RequireRole roles={['admin']}><Models /></RequireRole>} />
             <Route path="admin/faqs" element={<RequireRole roles={['admin']}><Faqs /></RequireRole>} />
+            <Route path="admin/emails" element={<RequireRole roles={['admin']}><Emails /></RequireRole>} />
           </Route>
         </Routes>
       </HashRouter>
