@@ -150,7 +150,7 @@ export function Ranking() {
       <div className="table-wrap">
         <table className="table" style={{ minWidth: 900 }}>
           <thead>
-            <tr><th>Rank</th><th>Applicant</th><th>Closeness</th><th>Income / person</th><th>SES</th><th>Household</th><th>GWA</th><th>Distance</th><th>Selection</th></tr>
+            <tr><th>Rank</th><th>Applicant</th><th>Closeness</th><th>Income / person</th><th>SES</th><th>Household</th><th>GWA</th><th>Selection</th></tr>
           </thead>
           <tbody>
             {results.map((r, i) => (
@@ -179,10 +179,9 @@ function RowWithLine({ r, showLine }: { r: Result; showLine: boolean }) {
         <td>{v.C2 != null ? Number(v.C2).toFixed(2) : '—'}</td>
         <td>{v.C3 ?? '—'}</td>
         <td>{v.C4 != null ? `${v.C4}%` : '—'}</td>
-        <td>{v.C5 != null ? `${v.C5} km` : '—'}</td>
         <td>{r.recommended ? (r.pay_tier_amount ? `PHP ${Number(r.pay_tier_amount).toLocaleString()}` : 'Within the slots') : 'Waitlist'}</td>
       </tr>
-      {showLine && <tr className="slot-line"><td colSpan={9}><div>Slot line. Applicants below are waitlisted in rank order.</div></td></tr>}
+      {showLine && <tr className="slot-line"><td colSpan={8}><div>Slot line. Applicants below are waitlisted in rank order.</div></td></tr>}
     </>
   )
 }

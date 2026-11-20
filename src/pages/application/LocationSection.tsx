@@ -61,8 +61,8 @@ export function LocationSection({ data, readOnly, reload }: SectionProps) {
     <section className="card">
       <h2>Where is your home?</h2>
       <p className="muted">
-        Zoom in and tap the exact spot of your house. The pin is used to measure the road distance to your school and to
-        check that it is inside your barangay. A typed address alone is not used.
+        Zoom in and tap the exact spot of your house. The pin is used to check that your home is inside your barangay
+        and helps the office find it if a home visit is needed.
       </p>
       {!readOnly && (
         <button className="button ghost small" onClick={useMyLocation}>
