@@ -741,3 +741,12 @@ label.inline select { width: auto; }
 .dup-same-person { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .dup-same-person select { min-height: var(--target); }
 .dup-same-person .field-error { flex-basis: 100%; margin-top: 0; }
+
+/* Admin > FAQs list */
+.faq-admin { list-style: none; margin: 0; padding: 0; }
+.faq-admin li { padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.faq-admin li:first-child { border-top: 0; }
+.faq-admin li.editing { background: var(--blue-tint); margin: 0 -12px; padding: 12px; border-radius: 8px; }
+.faq-admin-head { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
+.faq-admin-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn.small { min-height: 34px; padding: 4px 10px; font-size: 13px; }
