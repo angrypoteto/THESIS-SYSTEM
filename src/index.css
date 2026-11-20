@@ -233,6 +233,11 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 .error { color: var(--error); }
+/* a box with a problem: red border + light red fill, its message right under it (aria-invalid set by the form) */
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] {
+  border-color: var(--error) !important; background-color: #FDECEA; box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.15);
+}
+.field-error { display: block; color: var(--error); font-size: 13px; font-weight: 600; margin-top: 4px; }
 .success { color: var(--ok-ink); font-weight: 600; }
 .error-list { color: var(--error); background: #FDECEA; border-radius: 8px; padding: 10px 12px 10px 30px; margin: 0; }
 .banner { padding: 12px 16px; border-radius: 10px; font-size: 14px; line-height: 1.5; }

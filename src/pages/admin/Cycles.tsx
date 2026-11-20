@@ -52,31 +52,50 @@ export function Cycles() {
   const [f, setF] = useState<Form>(cycle ? fromCycle(cycle) : blank())
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // boxes turn red after the first Save attempt, then update as they are corrected
+  const [checked, setChecked] = useState(false)
 
   useEffect(() => {
+    setChecked(false)
     if (editing === 'new') return setF(blank())
     const c = cycles.find((x) => x.id === editing)
     if (c) setF(fromCycle(c))
   }, [editing, cycles])
 
+  const errors = checked ? problems() : {}
+  /** aria-invalid (red box) and the box's own message */
+  const bad = (k: keyof Form) => ({ 'aria-invalid': errors[k] ? true : undefined, 'aria-describedby': errors[k] ? `err-${k}` : undefined })
+  const err = (k: keyof Form) => (errors[k] ? <span id={`err-${k}`} className="field-error" role="alert">{errors[k]}</span> : null)
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
 
-  function problems(): string[] {
-    const p: string[] = []
-    if (!f.name.trim() || !f.school_year.trim() || !f.term.trim()) p.push('Name, school year and term are required.')
-    if (!f.opens_at || !f.closes_at) p.push('Set when step 1 opens and closes.')
-    else if (Date.parse(f.closes_at) <= Date.parse(f.opens_at)) p.push('Step 1 must close after it opens.')
-    if (f.exam_at && f.closes_at && Date.parse(f.exam_at) < Date.parse(f.closes_at)) p.push('The exam should be after step 1 closes.')
-    if (f.step2_closes_at && f.exam_at && Date.parse(f.step2_closes_at) <= Date.parse(f.exam_at)) p.push('The step 2 deadline must be after the exam.')
-    if (!(Number(f.slots) >= 0) || f.slots === '') p.push('Enter the number of slots.')
-    if (f.step2_slots !== '' && Number(f.step2_slots) < Number(f.slots)) p.push('The number who proceed to step 2 cannot be less than the final slots.')
-    if (!(Number(f.gwa_cutoff) > 0 && Number(f.gwa_cutoff) <= 100)) p.push('GWA cut-off is a percentage (for example 81).')
+  /** One message per box with a problem, so each box can be marked in red with its own message. */
+  function problems(): Partial<Record<keyof Form, string>> {
+    const p: Partial<Record<keyof Form, string>> = {}
+    if (!f.name.trim()) p.name = 'Enter a name for the cycle.'
+    if (!f.school_year.trim()) p.school_year = 'Enter the school year, e.g. 2027-2028.'
+    if (!f.term.trim()) p.term = 'Enter the term, e.g. 1st semester.'
+    if (!f.opens_at) p.opens_at = 'Set when step 1 opens.'
+    if (!f.closes_at) p.closes_at = 'Set the step 1 deadline.'
+    else if (f.opens_at && Date.parse(f.closes_at) <= Date.parse(f.opens_at)) p.closes_at = 'The deadline must be after step 1 opens.'
+    if (f.exam_at && f.closes_at && Date.parse(f.exam_at) < Date.parse(f.closes_at)) p.exam_at = 'The exam should be after step 1 closes.'
+    if (f.step2_closes_at && f.exam_at && Date.parse(f.step2_closes_at) <= Date.parse(f.exam_at)) p.step2_closes_at = 'The step 2 deadline must be after the exam.'
+    if (f.slots === '' || !(Number(f.slots) >= 1) || !Number.isInteger(Number(f.slots))) p.slots = 'Enter the number of scholars (a whole number, at least 1).'
+    if (f.step2_slots !== '' && (!Number.isInteger(Number(f.step2_slots)) || Number(f.step2_slots) < Number(f.slots)))
+      p.step2_slots = `Must be a whole number, at least the final slots (${f.slots || 0}).`
+    if (!(Number(f.gwa_cutoff) > 0 && Number(f.gwa_cutoff) <= 100)) p.gwa_cutoff = 'A percentage from 1 to 100, e.g. 81.'
     return p
   }
 
   async function save() {
     const p = problems()
-    if (p.length) return setMsg({ ok: false, text: p.join(' ') })
+    setChecked(true)
+    const bad = Object.keys(p)
+    if (bad.length) {
+      setMsg({ ok: false, text: `Fix the ${bad.length} box${bad.length === 1 ? '' : 'es'} marked in red.` })
+      // bring the first problem into view
+      setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0)
+      return
+    }
     setBusy(true)
     const row = {
       name: f.name.trim(), school_year: f.school_year.trim(), term: f.term.trim(),
@@ -123,36 +142,36 @@ export function Cycles() {
 
         <section className="card">
           <h2>{editing === 'new' ? 'New cycle' : `Edit: ${f.name || '…'}`}</h2>
-          <label className="field">Name<input value={f.name} onChange={set('name')} placeholder="e.g. Scholarship 2027-2028, 1st semester" /></label>
+          <label className="field">Name<input {...bad('name')} value={f.name} onChange={set('name')} placeholder="e.g. Scholarship 2027-2028, 1st semester" />{err('name')}</label>
           <div className="row">
-            <label className="field">School year<input value={f.school_year} onChange={set('school_year')} placeholder="2027-2028" /></label>
-            <label className="field">Term<input value={f.term} onChange={set('term')} /></label>
+            <label className="field">School year<input {...bad('school_year')} value={f.school_year} onChange={set('school_year')} placeholder="2027-2028" />{err('school_year')}</label>
+            <label className="field">Term<input {...bad('term')} value={f.term} onChange={set('term')} />{err('term')}</label>
           </div>
           <h3>Step 1: initial screening</h3>
           <div className="row">
-            <label className="field">Opens<input type="datetime-local" value={f.opens_at} onChange={set('opens_at')} /></label>
-            <label className="field">Closes (deadline)<input type="datetime-local" value={f.closes_at} onChange={set('closes_at')} /></label>
+            <label className="field">Opens<input {...bad('opens_at')} type="datetime-local" value={f.opens_at} onChange={set('opens_at')} />{err('opens_at')}</label>
+            <label className="field">Closes (deadline)<input {...bad('closes_at')} type="datetime-local" value={f.closes_at} onChange={set('closes_at')} />{err('closes_at')}</label>
           </div>
           <h3>Qualifying exam (given by RTU)</h3>
           <div className="row">
-            <label className="field">Date and time<input type="datetime-local" value={f.exam_at} onChange={set('exam_at')} /></label>
+            <label className="field">Date and time<input {...bad('exam_at')} type="datetime-local" value={f.exam_at} onChange={set('exam_at')} />{err('exam_at')}</label>
             <label className="field">Venue<input value={f.exam_venue} onChange={set('exam_venue')} /></label>
           </div>
           <h3>Step 2: requirements for qualified examinees</h3>
           <label className="field">
             Deadline
-            <input type="datetime-local" value={f.step2_closes_at} onChange={set('step2_closes_at')} />
+            <input {...bad('step2_closes_at')} type="datetime-local" value={f.step2_closes_at} onChange={set('step2_closes_at')} />{err('step2_closes_at')}
             <span className="muted small">Leave empty to keep step 2 open until the cycle is ranked.</span>
           </label>
           <h3>Selection</h3>
           <label className="field">
             Applicants who proceed to step 2
-            <input type="number" min={0} value={f.step2_slots} onChange={set('step2_slots')} placeholder="e.g. twice the slots" />
+            <input {...bad('step2_slots')} type="number" min={0} value={f.step2_slots} onChange={set('step2_slots')} placeholder="e.g. twice the slots" />{err('step2_slots')}
             <span className="muted small">After the exam, applicants are ranked on 70% exam score + 30% GWA and this many proceed. Leave empty to use the number of slots.</span>
           </label>
           <div className="row">
-            <label className="field">Final slots (scholars)<input type="number" min={0} value={f.slots} onChange={set('slots')} /></label>
-            <label className="field">GWA cut-off (%)<input type="number" min={1} max={100} step={0.01} value={f.gwa_cutoff} onChange={set('gwa_cutoff')} /></label>
+            <label className="field">Final slots (scholars)<input {...bad('slots')} type="number" min={0} value={f.slots} onChange={set('slots')} />{err('slots')}</label>
+            <label className="field">GWA cut-off (%)<input {...bad('gwa_cutoff')} type="number" min={1} max={100} step={0.01} value={f.gwa_cutoff} onChange={set('gwa_cutoff')} />{err('gwa_cutoff')}</label>
           </div>
           <label className="field">
             Status
