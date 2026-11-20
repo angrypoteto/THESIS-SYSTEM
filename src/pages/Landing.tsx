@@ -21,12 +21,16 @@ export function Landing() {
   const { session } = useAuth()
   const [cycle, setCycle] = useState<ProgramCycle | null>(null)
   const [docs, setDocs] = useState<DocumentType[]>([])
+  // published FAQs, written by the office on Administration > FAQs
+  const [faqs, setFaqs] = useState<{ id: number; question: string; answer: string }[]>([])
 
   useEffect(() => {
     supabase.from('program_cycles').select('*').in('status', ['open', 'closed']).order('opens_at', { ascending: false }).limit(1)
       .then(({ data }) => setCycle((data?.[0] as ProgramCycle) ?? null))
     supabase.from('document_types').select('code,name,required,stage,required_when').order('stage').order('required', { ascending: false })
       .then(({ data }) => setDocs((data as DocumentType[]) ?? []))
+    supabase.from('faqs').select('id,question,answer').eq('is_published', true).order('sort_order').order('id')
+      .then(({ data }) => setFaqs((data as { id: number; question: string; answer: string }[]) ?? []))
   }, [])
 
   const now = Date.now()
@@ -142,6 +146,20 @@ export function Landing() {
           ))}
         </ol>
       </section>
+
+      {faqs.length > 0 && (
+        <section className="card" aria-labelledby="faq">
+          <h2 id="faq">Frequently asked questions</h2>
+          <div className="faq">
+            {faqs.map((q) => (
+              <details key={q.id}>
+                <summary>{q.question}</summary>
+                <p style={{ whiteSpace: 'pre-line' }}>{q.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="cta-band">
         <PartnerLockup size={44} onDark />

@@ -30,6 +30,7 @@ const ADMIN: [string, string, IconName][] = [
   ['/admin/cycles', 'Cycles & slots', 'cycle'],
   ['/admin/users', 'Users & roles', 'key'],
   ['/admin/duplicates', 'Duplicates', 'copy'],
+  ['/admin/faqs', 'FAQs', 'help'],
   ['/admin/models', 'Models', 'chip'],
   ['/admin/audit', 'Audit log', 'shield'],
 ]
