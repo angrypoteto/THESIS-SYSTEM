@@ -35,17 +35,18 @@ export function Reports() {
     for (const r of all) m.set(r.status, (m.get(r.status) ?? 0) + 1)
     return ORDER.filter((s) => m.has(s)).map((s) => [s, m.get(s)!] as const)
   }, [all])
-  const byBarangay = useMemo(() => {
+  // ranked applicants per course (owner, 2026-11-21: by course instead of by barangay, which the paper does not list)
+  const byCourse = useMemo(() => {
     const m = new Map<string, number>()
-    for (const r of all) if (r.rank != null) m.set(r.barangay ?? 'Not set', (m.get(r.barangay ?? 'Not set') ?? 0) + 1)
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+    for (const r of all) if (r.rank != null) m.set(r.course ?? 'Not set', (m.get(r.course ?? 'Not set') ?? 0) + 1)
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   }, [all])
   const approved = all.filter((r) => r.status === 'approved')
   const overrides = all.filter((r) => r.decision_override).length
   const allowance = approved.reduce((s, r) => s + Number(r.pay_tier_amount ?? 0), 0)
   const shown = view === 'ranked' ? all.filter((r) => r.rank != null) : all
   const maxStatus = Math.max(1, ...byStatus.map(([, n]) => n))
-  const maxBrgy = Math.max(1, ...byBarangay.map(([, n]) => n))
+  const maxCourse = Math.max(1, ...byCourse.map(([, n]) => n))
 
   if (!cycle) return <p className="muted">No program cycle yet.</p>
 
@@ -84,14 +85,14 @@ export function Reports() {
           </tbody></table>
         </section>
         <section className="card">
-          <h2>Ranked applicants by barangay</h2>
+          <h2>Ranked applicants by course</h2>
           <table className="table"><tbody>
-            {byBarangay.map(([b, n]) => (
-              <tr key={b}><td>{b}</td>
-                <td style={{ width: '55%' }}><span className="bar" style={{ width: `${(n / maxBrgy) * 100}%` }} /></td>
+            {byCourse.map(([c, n]) => (
+              <tr key={c}><td>{c}</td>
+                <td style={{ width: '45%' }}><span className="bar" style={{ width: `${(n / maxCourse) * 100}%` }} /></td>
                 <td className="num">{n}</td></tr>
             ))}
-            {byBarangay.length === 0 && <tr><td className="muted">No ranking yet.</td></tr>}
+            {byCourse.length === 0 && <tr><td className="muted">No ranking yet.</td></tr>}
           </tbody></table>
         </section>
       </div>
