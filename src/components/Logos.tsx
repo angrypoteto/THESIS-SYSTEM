@@ -3,13 +3,14 @@ import { useState } from 'react'
 /**
  * Official logos. Put the files the office provides in web/public/logos/ :
  *   mandaluyong-seal.png  (City of Mandaluyong seal)
- *   rtu-logo.png          (Rizal Technological University logo)
+ *   meso-logo.png         (City of Mandaluyong Collegiate Scholarship seal, given by the office for MESO)
  * Until a file is there, a lettered badge in the same place keeps the layout intact.
  * Use only official artwork supplied or approved by the office / RTU.
  */
 export const LOGOS = {
   mandaluyong: { file: 'logos/mandaluyong-seal.png', alt: 'Seal of the City of Mandaluyong', initials: 'MC', tone: 'city' },
-  rtu: { file: 'logos/rtu-logo.png', alt: 'Rizal Technological University logo', initials: 'RTU', tone: 'rtu' },
+  // the client removed every RTU logo (2026-11-21); the office's own program seal stands for MESO
+  meso: { file: 'logos/meso-logo.png', alt: 'Seal of the City of Mandaluyong Collegiate Scholarship (MESO)', initials: 'MESO', tone: 'rtu' },
 } as const
 
 export function Logo({ which, size = 64 }: { which: keyof typeof LOGOS; size?: number }) {
@@ -29,17 +30,17 @@ export function Logo({ which, size = 64 }: { which: keyof typeof LOGOS; size?: n
   )
 }
 
-/** "City of Mandaluyong × RTU" lock-up: shows the two institutions behind the program side by side. */
+/** "City of Mandaluyong × MESO" lock-up: the city and the office that runs the program, side by side. */
 export function PartnerLockup({ size = 64, onDark = false }: { size?: number; onDark?: boolean }) {
   return (
     <div className={`partner-lockup ${onDark ? 'on-dark' : ''}`}>
       <div className="partner">
         <Logo which="mandaluyong" size={size} />
-        <span><b>City of Mandaluyong</b><small>Educational Service Office</small></span>
+        <span><b>City of Mandaluyong</b></span>
       </div>
       <div className="partner">
-        <Logo which="rtu" size={size} />
-        <span><b>Rizal Technological University</b><small>Boni Avenue, Mandaluyong</small></span>
+        <Logo which="meso" size={size} />
+        <span><b>Mandaluyong Educational Service Office</b><small>MESO</small></span>
       </div>
     </div>
   )

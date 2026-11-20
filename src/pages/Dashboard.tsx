@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
-import type { ProgramCycle } from '../lib/types'
+import type { DocumentType, ProgramCycle } from '../lib/types'
 
 /** Sends each role to its home screen. */
 export function Dashboard() {
@@ -14,7 +14,7 @@ export function Dashboard() {
 
 interface ApplicantRow { school_id: number | null; barangay_id: number | null; course: string | null; year_level: number | null }
 interface AppRow {
-  id: string; status: string; submitted_at: string | null; cycle_id: number; applicant_no: string | null
+  id: string; status: string; stage: 1 | 2; submitted_at: string | null; cycle_id: number; applicant_no: string | null
   documents: { type_code: string; verification_status: string; is_current: boolean }[]
 }
 interface Note { id: number; title: string; body: string; created_at: string; read_at: string | null }
@@ -35,6 +35,7 @@ function ApplicantHome() {
   const [app, setApp] = useState<AppRow | null>(null)
   const [cycle, setCycle] = useState<ProgramCycle | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
+  const [step2Docs, setStep2Docs] = useState<DocumentType[]>([])
   const userId = profile?.id
 
   useEffect(() => {
@@ -51,8 +52,13 @@ function ApplicantHome() {
       setCycle(cyc)
       setNotes((n.data as Note[]) ?? [])
       if (cyc) {
-        const r = await supabase.from('applications').select('id,status,submitted_at,cycle_id,applicant_no,documents(type_code,verification_status,is_current)').eq('cycle_id', cyc.id).maybeSingle()
+        const r = await supabase.from('applications').select('id,status,stage,submitted_at,cycle_id,applicant_no,documents(type_code,verification_status,is_current)').eq('cycle_id', cyc.id).maybeSingle()
         if (live) setApp(r.data as AppRow | null)
+        // the step 2 requirements are shown only to applicants who passed the exam (client, 2026-11-21)
+        if ((r.data as AppRow | null)?.stage === 2) {
+          const d = await supabase.from('document_types').select('code,name,required,stage,required_when').eq('stage', 2).order('required', { ascending: false })
+          if (live) setStep2Docs((d.data as DocumentType[]) ?? [])
+        }
       }
       // opening the dashboard marks messages as read
       const unread = ((n.data as Note[]) ?? []).filter((x) => !x.read_at).map((x) => x.id)
@@ -110,6 +116,8 @@ function ApplicantHome() {
             <h2 id="todo">What to do now</h2>
             {!profileComplete ? (
               <ToDo title="Complete your profile" text="Add your school, course, year level and barangay." to="/profile" cta="Complete my profile" />
+            ) : app?.stage === 2 && app.status === 'draft' ? (
+              <ToDo title="Complete step 2" text="You passed the qualifying exam. Add your household, income and living conditions, and upload the step 2 requirements listed below." to="/app/application" cta="Continue to step 2" />
             ) : !cycle || cycle.status !== 'open' ? (
               <p className="muted" style={{ margin: 0 }}>No application period is open right now.</p>
             ) : !app || app.status === 'draft' ? (
@@ -132,6 +140,18 @@ function ApplicantHome() {
               </>
             )}
           </section>
+          {app?.stage === 2 && step2Docs.length > 0 && (
+            <section className="card" aria-labelledby="step2req">
+              <h2 id="step2req">Step 2 requirements</h2>
+              <p className="muted" style={{ marginTop: 0 }}>Because you passed the qualifying exam, prepare and upload these in your application.</p>
+              <ul style={{ paddingLeft: 20, margin: 0, lineHeight: 1.8 }}>
+                {step2Docs.map((d) => (
+                  <li key={d.code}>{d.name}{d.required_when === 'member_ill' && <span className="muted"> (if a household member is ill)</span>}</li>
+                ))}
+              </ul>
+              <p className="small muted" style={{ marginBottom: 0 }}>Clear phone photos in good light are fine. PDF scans also work.</p>
+            </section>
+          )}
         </div>
         <aside className="side">
           <section className="card" aria-labelledby="msgs">

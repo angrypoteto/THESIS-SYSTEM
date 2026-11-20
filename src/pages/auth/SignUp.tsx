@@ -114,7 +114,7 @@ export function SignUp() {
     <section className="auth-card wide">
       <div className="auth-card-head">
         <Link to="/" className="auth-logos auth-home-link" aria-label="Go to the home page" title="Home">
-          <Logo which="mandaluyong" size={60} /><Logo which="rtu" size={60} />
+          <Logo which="mandaluyong" size={60} /><Logo which="meso" size={60} />
         </Link>
         <h1>Create an applicant account</h1>
         <p>For RTU students applying to the City of Mandaluyong scholarship. Staff accounts are created by an administrator.</p>

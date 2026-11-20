@@ -39,7 +39,7 @@ export function CheckEmail() {
     <section className="auth-card">
       <div className="auth-card-head">
         <Link to="/" className="auth-logos auth-home-link" aria-label="Go to the home page" title="Home">
-          <Logo which="mandaluyong" size={56} /><Logo which="rtu" size={56} />
+          <Logo which="mandaluyong" size={56} /><Logo which="meso" size={56} />
         </Link>
         <h1>Check your email</h1>
         <p>One more step to create your account.</p>

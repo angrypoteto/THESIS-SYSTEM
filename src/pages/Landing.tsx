@@ -16,26 +16,7 @@ const STEPS: [string, string][] = [
   ['Ranking and final selection', 'Applicants who complete step 2 are ranked by need and grades, and the scholars are selected from that ranking up to the available slots. You are notified by email.'],
 ]
 
-const CRITERIA: [string, string][] = [
-  ['Income per person', 'Household income divided by the number of people in the household. Lower income ranks higher.'],
-  ['Living conditions', 'Housing, water, electricity, appliances, and your parents’ education and work. Income is not counted again here.'],
-  ['Household size', 'How many people live and eat with you.'],
-  ['Grades', 'Your general weighted average, converted from RTU’s 1.00 to 5.00 scale (1.00 is highest).'],
-]
-
-const FAQ: [string, string][] = [
-  ['I am an incoming 1st year. I have no IER yet.', 'Upload your Senior High School report card (Form 138) instead. Incoming 2nd years upload their RTU IER.'],
-  ['Where and when is the qualifying exam?', 'RTU gives the exam on paper. The date and venue appear on this page and in your account once the office sets them.'],
-  ['When do I get an Applicant ID?', 'After the exam. Only applicants who qualify to proceed receive an official Applicant ID (for example MESO-2026-00125) by email. You keep signing in with your email and password.'],
-  ['Our income is above PHP 250,000 a year. Can I still apply?', 'Yes. The application is not rejected automatically; an evaluator reviews it, for example when the household includes extended family.'],
-  ['One of my parents has passed away or is not with us.', 'Upload what you have and add a note. A staff member reviews it and can clear the voter-certificate requirement with a written reason.'],
-  ['Someone in my family is sick or has a disability.', 'Tick "Ill / PWD" for that person in the household list. You will be asked for a medical certificate, and the office takes it into account.'],
-  ['My phone photo is blurry. Will I be rejected?', 'No. Unclear documents go to a staff member, who can ask you for a clearer copy. You upload it again without redoing the form.'],
-  ['Does a computer decide who gets the scholarship?', 'No. The system checks documents, estimates need and ranks applicants with published criteria, but office staff make every final decision, and you can ask why you were or were not selected.'],
-  ['Can I edit my application after submitting?', 'Not after you submit a step, so check the review page first. If staff ask for a clearer copy of a document, you can replace just that document.'],
-]
-
-/** Landing page: the Mandaluyong × RTU program, key dates, eligibility, requirements, how ranking works, FAQ. */
+/** Landing page (client changes 2026-11-21): CMCS program title, City × MESO, key dates, who can apply, step 1 requirements, how it works. */
 export function Landing() {
   const { session } = useAuth()
   const [cycle, setCycle] = useState<ProgramCycle | null>(null)
@@ -80,42 +61,24 @@ export function Landing() {
             ) : (
               <span className="pill">No application period is open right now</span>
             )}
-            <h1>Scholarship for RTU students from Mandaluyong</h1>
+            <h1>City of Mandaluyong Collegiate Scholarship (CMCS) Program</h1>
             <p>
               The City of Mandaluyong supports incoming 1st and 2nd year students of Rizal Technological University. Apply from home,
               upload your documents, take the qualifying exam at RTU, and follow your application until the result.
             </p>
             <div className="actions" style={{ marginTop: 0 }}>{ctaButtons(true)}</div>
           </div>
-          {/* Mandaluyong and RTU photos overlap: the city and the university behind one program */}
-          <div className="hero-photos">
-            <figure className="hero-photo city">
-              <img src={`${import.meta.env.BASE_URL}images/mandaluyong-city.jpg`} alt="Aerial view of Mandaluyong City along the Pasig River" width={1600} height={900} />
-              <figcaption><Logo which="mandaluyong" size={26} /> City of Mandaluyong</figcaption>
-            </figure>
-            <figure className="hero-photo rtu">
-              <img src={`${import.meta.env.BASE_URL}images/rtu-campus.jpg`} alt="Rizal Technological University gate arch" width={1200} height={856} />
-              <figcaption><Logo which="rtu" size={26} /> Rizal Technological University</figcaption>
-            </figure>
-          </div>
         </div>
       </div>
 
       {/* the two institutions behind the program */}
-      <section className="partner-band" aria-labelledby="partners">
+      <section className="partner-band single" aria-labelledby="partners">
         <h2 id="partners" className="sr">Program partners</h2>
         <div className="partner-card">
           <Logo which="mandaluyong" size={72} />
           <div>
             <h3>City of Mandaluyong</h3>
             <p>The Educational Service Office runs the scholarship: it checks requirements, ranks applicants and decides who receives the allowance.</p>
-          </div>
-        </div>
-        <div className="partner-card">
-          <Logo which="rtu" size={72} />
-          <div>
-            <h3>Rizal Technological University</h3>
-            <p>The scholarship is for RTU students. RTU gives the qualifying exam, and your RTU COR and grades are the first requirements.</p>
           </div>
         </div>
       </section>
@@ -153,12 +116,7 @@ export function Landing() {
           <ul style={{ paddingLeft: 20, margin: 0, lineHeight: 1.8 }}>
             {docs.filter((d) => d.stage === 1).map((d) => <li key={d.code}>{d.name}</li>)}
           </ul>
-          <p className="small" style={{ margin: '12px 0 4px' }}><strong>Step 2</strong> (only if you pass the exam)</p>
-          <ul style={{ paddingLeft: 20, margin: 0, lineHeight: 1.8 }}>
-            {docs.filter((d) => d.stage === 2).map((d) => (
-              <li key={d.code}>{d.name}{d.required_when === 'member_ill' && <span className="muted"> (if a household member is ill)</span>}</li>
-            ))}
-          </ul>
+          <p className="small" style={{ margin: '12px 0 0' }}>If you pass the qualifying exam, the step 2 requirements appear on your dashboard.</p>
           <p className="small muted" style={{ marginBottom: 0 }}>Clear phone photos in good light are fine. PDF scans also work.</p>
         </section>
         <section className="card">
@@ -185,39 +143,6 @@ export function Landing() {
         </ol>
       </section>
 
-      <section className="card" aria-labelledby="ranking">
-        <h2 id="ranking">How applicants are ranked</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Everyone who proceeds after the exam and passes the eligibility checks is compared on the same four criteria. The weight of each
-          criterion is set by the office. Students with greater need rank higher, and grades also count.
-        </p>
-        <div className="criteria-grid">
-          {CRITERIA.map(([t, d], i) => (
-            <div key={t} className="criterion">
-              <span className="crit-code">C{i + 1}</span>
-              <strong>{t}</strong>
-              <span className="small muted">{d}</span>
-            </div>
-          ))}
-        </div>
-        <p className="small muted" style={{ marginBottom: 0 }}>
-          A computer model helps staff spot households that may need a closer look, but it never rejects anyone on its own.
-          Office staff make every final decision.
-        </p>
-      </section>
-
-      <section className="card" aria-labelledby="faq">
-        <h2 id="faq">Frequently asked questions</h2>
-        <div className="faq">
-          {FAQ.map(([q, a]) => (
-            <details key={q}>
-              <summary>{q}</summary>
-              <p>{a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
       <section className="cta-band">
         <PartnerLockup size={44} onDark />
         <h2>{open ? 'Applications are open' : 'Get ready for the next application period'}</h2>
@@ -225,10 +150,8 @@ export function Landing() {
         <div className="actions" style={{ justifyContent: 'center', marginTop: 0 }}>{ctaButtons(true)}</div>
       </section>
       <p className="photo-credits">
-        Photos: <a href="https://commons.wikimedia.org/wiki/File:Mandaluyong_City_View_(cropped).jpg" target="_blank" rel="noreferrer">Mandaluyong City View</a> by
-        Ganmatthew, CC0; <a href="https://commons.wikimedia.org/wiki/File:Rizal_Technological_University_Pasig_6.jpg" target="_blank" rel="noreferrer">Rizal
-        Technological University Pasig</a> by Valenzuela400, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>,
-        cropped and resized (RTU Pasig campus). Both via Wikimedia Commons.
+        Background photo: <a href="https://commons.wikimedia.org/wiki/File:Mandaluyong_City_View_(cropped).jpg" target="_blank" rel="noreferrer">Mandaluyong City View</a> by
+        Ganmatthew, CC0, via Wikimedia Commons.
       </p>
     </>
   )

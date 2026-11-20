@@ -42,7 +42,7 @@ export function AuthLayout() {
             <strong>Scholarship Portal</strong>
             <span>City of Mandaluyong · RTU</span>
           </span>
-          <Logo which="rtu" size={40} />
+          <Logo which="meso" size={40} />
         </Link>
         <div className="auth-panel-copy">
           <h2>{copy.title}</h2>
