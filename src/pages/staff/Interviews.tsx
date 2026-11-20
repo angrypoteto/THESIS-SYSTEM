@@ -7,11 +7,11 @@ import type { ReportRow } from '../../lib/report'
 
 interface Interview {
   id: number; application_id: string; slot_start: string; slot_end: string; location: string | null
-  status: 'scheduled' | 'done' | 'no_show' | 'cancelled'; notes: string | null
+  status: 'scheduled' | 'done' | 'no_show' | 'cancelled' | 'forfeited'; notes: string | null
 }
 
 const INTERVIEWABLE = ['eligible', 'ranked', 'approved', 'waitlisted', 'submitted', 'under_review']
-const STATUS_TEXT: Record<Interview['status'], string> = { scheduled: 'Scheduled', done: 'Done', no_show: 'No show', cancelled: 'Cancelled' }
+const STATUS_TEXT: Record<Interview['status'], string> = { scheduled: 'Scheduled', done: 'Passed', no_show: 'No show', cancelled: 'Cancelled', forfeited: 'Forfeited' }
 const when = (iso: string) => new Date(iso).toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 /** Tomorrow 9:00 in the browser's time zone, as a datetime-local value. */
@@ -40,6 +40,10 @@ export function Interviews() {
   const [filter, setFilter] = useState<'unscheduled' | 'scheduled' | 'all'>('unscheduled')
   const [busy, setBusy] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<number, string>>({})
+  // forfeit at the interview (client, 2026-11-21): the reason is required
+  const [forfeitFor, setForfeitFor] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
+  const [reasonMissing, setReasonMissing] = useState(false)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const cycleId = cycle?.id
 
@@ -110,6 +114,19 @@ export function Interviews() {
     else load()
   }
 
+  async function forfeit(appId: string) {
+    if (!reason.trim()) return setReasonMissing(true)
+    setBusy(appId)
+    setMsg(null)
+    const { error } = await supabase.rpc('forfeit_application', { p_app: appId, p_reason: reason.trim() })
+    setBusy(null)
+    if (error) return setMsg({ kind: 'error', text: error.message })
+    setMsg({ kind: 'ok', text: 'Application forfeited. It is out of the ranking, and the applicant sees the reason in the portal.' })
+    setForfeitFor(null)
+    setReason('')
+    load()
+  }
+
   if (!cycle) return <p className="muted">No program cycle yet.</p>
 
   // preview: where the picked applicants land (same rule as the database)
@@ -137,15 +154,17 @@ export function Interviews() {
       <div className="page-head">
         <div>
           <h1>Interviews</h1>
-          <p>Schedule interviews for step 2 applicants. Each applicant is emailed the slot, and reminded the day before at 8:00 AM.</p>
+          <p>Schedule interviews for step 2 applicants. Each applicant is emailed the slot, and reminded the day before at 8:00 AM.
+            The interview is the final check: only applicants marked <b>Passed</b> are ranked, and the final selection waits until
+            every interview is settled (Passed or Forfeited).</p>
         </div>
       </div>
 
       <div className="grid four" style={{ marginBottom: 0 }}>
         <div className="stat warn"><div className="stat-value">{rows ? unscheduled : '…'}</div><div className="stat-label">Without a slot</div></div>
         <div className="stat"><div className="stat-value">{active.size}</div><div className="stat-label">Scheduled</div></div>
-        <div className="stat"><div className="stat-value">{ivs.filter((i) => i.status === 'done').length}</div><div className="stat-label">Done</div></div>
-        <div className="stat"><div className="stat-value">{ivs.filter((i) => i.status === 'no_show').length}</div><div className="stat-label">No show</div></div>
+        <div className="stat"><div className="stat-value">{ivs.filter((i) => i.status === 'done').length}</div><div className="stat-label">Passed</div></div>
+        <div className="stat"><div className="stat-value">{ivs.filter((i) => i.status === 'forfeited').length}</div><div className="stat-label">Forfeited</div></div>
       </div>
 
       {msg && <p className={msg.kind === 'ok' ? 'success' : 'error'} role="status">{msg.text}</p>}
@@ -208,15 +227,34 @@ export function Interviews() {
                           : <span className="muted">no slot</span>}
                       </td>
                       <td>
-                        {a ? (
-                          <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <input aria-label="Interview notes" placeholder="Notes (optional)" style={{ maxWidth: 170 }}
-                              value={notes[a.id] ?? ''} onChange={(e) => setNotes({ ...notes, [a.id]: e.target.value })} />
-                            <button className="btn btn-ok" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'done')}>Done</button>
-                            <button className="btn btn-plain" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'no_show')}>No show</button>
-                            <button className="btn-danger-link" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'cancelled')}>Cancel</button>
+                        {forfeitFor === r.application_id ? (
+                          <span style={{ display: 'grid', gap: 6 }}>
+                            <textarea aria-label="Why is the application forfeited?" aria-invalid={reasonMissing && !reason.trim()} rows={2}
+                              placeholder="Why? (required) e.g. both parents work; income higher than declared"
+                              value={reason} onChange={(e) => setReason(e.target.value)} style={{ minWidth: 240 }} />
+                            {reasonMissing && !reason.trim() && <span className="field-error" role="alert">Write why the application is forfeited.</span>}
+                            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <button className="btn btn-danger-outline" aria-busy={busy === r.application_id} disabled={busy === r.application_id}
+                                onClick={() => forfeit(r.application_id)}>Forfeit application</button>
+                              <button className="btn-danger-link" onClick={() => { setForfeitFor(null); setReason(''); setReasonMissing(false) }}>Back</button>
+                            </span>
                           </span>
-                        ) : <span className="muted small">tick to schedule</span>}
+                        ) : (
+                          <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                            {a ? (
+                              <>
+                                <input aria-label="Interview notes" placeholder="Notes (optional)" style={{ maxWidth: 170 }}
+                                  value={notes[a.id] ?? ''} onChange={(e) => setNotes({ ...notes, [a.id]: e.target.value })} />
+                                <button className="btn btn-ok" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'done')}>Passed</button>
+                                <button className="btn btn-plain" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'no_show')}>No show</button>
+                                <button className="btn-danger-link" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'cancelled')}>Cancel slot</button>
+                              </>
+                            ) : <span className="muted small">{last?.status === 'no_show' ? 'no show: tick to reschedule, or' : 'tick to schedule'}</span>}
+                            {['submitted', 'under_review', 'eligible'].includes(r.status) && last?.status !== 'done' && (
+                              <button className="btn-danger-link" onClick={() => { setForfeitFor(r.application_id); setReason(''); setReasonMissing(false) }}>Forfeit…</button>
+                            )}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )

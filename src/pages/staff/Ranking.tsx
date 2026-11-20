@@ -124,9 +124,10 @@ export function Ranking() {
       )}
       {!hasOfficial && (deadline ? (
         <div className="banner info" role="note">
-          This ranking updates by itself as applicants become eligible. The final selection is automatic: after step 2 closes
-          ({fmt(deadline)}) and every step-2 application has been checked, the top {slots} are approved and the rest are waitlisted.
-          {deadline.getTime() < Date.now() && ' Step 2 has closed; the selection is made within the hour once no application is still waiting for checking.'}
+          Only applicants who passed the interview are ranked; the order updates by itself. The final selection is automatic:
+          after step 2 closes ({fmt(deadline)}), once every step-2 application has been checked and every interview is settled
+          (Passed or Forfeited), the top {slots} are approved and the rest are waitlisted.
+          {deadline.getTime() < Date.now() && ' Step 2 has closed; the selection is made within the hour once the last interview is settled.'}
         </div>
       ) : (
         <div className="banner warn" role="note">
@@ -160,7 +161,7 @@ export function Ranking() {
             {results.map((r, i) => (
               <RowWithLine key={r.application_id} r={r} showLine={i === slots - 1 && results.length > slots} />
             ))}
-            {!results.length && <tr><td colSpan={9} className="muted" style={{ padding: 24 }}>{runs.length ? 'This run has no rows.' : 'No eligible applicants yet. The ranking appears here by itself as soon as applicants are cleared in step 2.'}</td></tr>}
+            {!results.length && <tr><td colSpan={9} className="muted" style={{ padding: 24 }}>{runs.length ? 'This run has no rows.' : 'Nobody to rank yet. Applicants appear here by themselves once their interview is marked Passed.'}</td></tr>}
           </tbody>
         </table>
       </div>
