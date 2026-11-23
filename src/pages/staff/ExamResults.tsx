@@ -303,7 +303,7 @@ export function ExamResults() {
               </table>
             </div>
             {!finalized && changed.length > 0 && (
-              <div className="save-bar" role="status">
+              <div className="unsaved-bar" role="status">
                 <span>{changed.length} change{changed.length === 1 ? '' : 's'} not saved yet{changed.some(([, x]) => x.absent) ? '. Students marked absent are emailed when you save.' : '.'}</span>
                 <button className="btn" aria-busy={busy === 'save'} disabled={busy === 'save'} onClick={saveAll}>
                   {busy === 'save' ? 'Saving…' : `Save ${changed.length} change${changed.length === 1 ? '' : 's'}`}
