@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthProvider'
 import { Logo } from '../../components/Logos'
+import { SealStamp } from '../../components/Journey'
 import { siteUrl, supabase } from '../../lib/supabase'
 
 const LAST_EMAIL = 'signup-email'
@@ -86,9 +87,11 @@ export function Welcome() {
   const first = profile?.full_name?.split(' ')[0]
   return (
     <section className="card narrow welcome-card">
-      <p className="pill ok" style={{ marginTop: 0 }}>Email confirmed</p>
-      <h1>Welcome{first ? `, ${first}` : ''}! Your account is ready.</h1>
-      <p>You can now apply to the City of Mandaluyong Scholarship Program for RTU students. Here is what to do next:</p>
+      <div className="moment" style={{ padding: '4px 0 8px' }}>
+        <SealStamp />
+        <h1>Welcome{first ? `, ${first}` : ''}! Your account is ready.</h1>
+      </div>
+      <p>You can now apply to the City of Mandaluyong Collegiate Scholarship (CMCS) Program. Here is what to do next:</p>
       <ol className="next-steps">
         <li><strong>Complete your profile</strong>: sex, address and barangay, senior high school, year level, department and course.</li>
         <li><strong>Step 1</strong>: enter your grades and upload your RTU registration form (COR) and your grade report. Then submit.</li>
@@ -96,7 +99,7 @@ export function Welcome() {
       </ol>
       <div className="actions">
         <Link className="btn btn-lg" to="/profile">Complete my profile</Link>
-        <Link className="btn btn-plain" to="/app">Go to my dashboard</Link>
+        <Link className="btn btn-plain" to="/app">Go to my home screen</Link>
       </div>
       <p className="small muted" style={{ marginBottom: 0 }}>Your answers are saved as you go, so you can stop and come back anytime before the deadline.</p>
     </section>

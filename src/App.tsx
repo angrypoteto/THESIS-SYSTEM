@@ -20,6 +20,7 @@ import { Landing } from './pages/Landing'
 import { Profile } from './pages/Profile'
 import { ApplicantFile } from './pages/staff/ApplicantFile'
 import { NotFound } from './pages/NotFound'
+import { EligibilityCheck } from './pages/EligibilityCheck'
 import { Interviews } from './pages/staff/Interviews'
 import { Reports } from './pages/staff/Reports'
 import { Users } from './pages/admin/Users'
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="app/application" element={<RequireRole roles={['applicant']}><ApplicationPage /></RequireRole>} />
             <Route path="profile" element={<RequireRole><Profile /></RequireRole>} />
             <Route path="welcome" element={<Welcome />} />
+            <Route path="check" element={<EligibilityCheck />} />
             <Route path="*" element={<NotFound />} />
           </Route>
 

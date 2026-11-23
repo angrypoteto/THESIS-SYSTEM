@@ -848,3 +848,67 @@ label.inline select { width: auto; }
 .moment { display: grid; justify-items: center; text-align: center; gap: 14px; padding: 28px 20px; }
 .moment h1 { font-size: clamp(30px, 5vw, 46px); margin: 0; }
 .moment p { margin: 0; color: var(--muted); max-width: 46ch; }
+
+/* ---------- public page hero (redesign, Nov 24) ---------- */
+.hero2 { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr); gap: 32px; align-items: stretch; margin: 4px 0 8px; }
+.hero2-text { display: flex; flex-direction: column; gap: 20px; justify-content: center; padding: 24px 0; }
+.hero2-text h1 { font-size: clamp(40px, 5.6vw, 68px); line-height: 1.0; letter-spacing: -0.03em; margin: 0; }
+.hero2-text h1 em { font-style: normal; color: var(--blue); }
+.hero2-text p { font-size: 18px; color: var(--ink-2); margin: 0; max-width: 34em; }
+.live-chip { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 7px 14px 7px 12px; font-size: 14px; font-weight: 600; color: var(--ink-2); box-shadow: 0 4px 14px rgba(11, 31, 77, 0.06); }
+.live-chip b { color: var(--blue); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #2FBF71; flex: none; animation: live-pulse 2s infinite; }
+@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgba(47, 191, 113, 0.55); } 70% { box-shadow: 0 0 0 9px rgba(47, 191, 113, 0); } 100% { box-shadow: 0 0 0 0 rgba(47, 191, 113, 0); } }
+.trust { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0; padding: 0; font-size: 14px; color: var(--muted); font-weight: 600; }
+.trust li::before { content: "✓ "; color: var(--ok); font-weight: 800; }
+.hero2-photo { position: relative; min-height: 520px; border-radius: 28px; overflow: hidden; background: var(--navy) var(--hero-bg) center / cover no-repeat; }
+.hero2-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(0, 43, 127, 0.12) 0%, rgba(11, 31, 77, 0.74) 100%); }
+.hero2-seal { position: absolute; top: 22px; right: 22px; z-index: 1; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25)); }
+.glass-path { position: absolute; left: 24px; right: 24px; bottom: 24px; z-index: 1; border-radius: 22px; padding: 18px 20px; color: #fff;
+  background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass-path { background: rgba(11, 31, 77, 0.82); } }
+.glass-path h2 { color: #fff; font-size: 17px; margin: 0 0 6px; }
+.glass-path ol { list-style: none; margin: 0; padding: 0; }
+.glass-path li { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px; padding: 7px 0; font-size: 15px; position: relative; }
+.glass-path li + li::before { content: ""; position: absolute; left: 14px; top: -8px; height: 16px; width: 2px; background: rgba(255, 255, 255, 0.45); }
+.glass-path i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.75); display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 13px; }
+.glass-path li.now i { background: #fff; color: var(--blue); border-color: #fff; }
+.glass-path li.done i { background: rgba(255, 255, 255, 0.25); }
+.glass-path span { display: grid; line-height: 1.25; }
+.glass-path small { color: #DCE6F6; font-size: 12.5px; }
+.glass-path .when { text-align: right; white-space: nowrap; }
+@media (max-width: 900px) {
+  .hero2 { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .hero2-text { padding: 8px 0 0; }
+  .hero2-photo { min-height: 430px; }
+}
+@media (max-width: 480px) {
+  .glass-path { left: 12px; right: 12px; bottom: 12px; padding: 14px; }
+  .glass-path li { font-size: 14px; gap: 10px; }
+  .hero2-seal img { width: 52px; height: 52px; }
+}
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+/* ---------- Can I apply? ---------- */
+.check-page { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.check-page .card { margin-bottom: 0; }
+.check-result { position: sticky; top: 90px; }
+.yn-list { list-style: none; margin: 0; padding: 0; }
+.yn-list li { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line-soft); }
+.yn-list li > div:first-child { display: grid; gap: 2px; }
+.yn { display: inline-flex; border: 1.5px solid var(--line-input); border-radius: 12px; overflow: hidden; flex: none; }
+.yn button { min-height: var(--target); min-width: 64px; border: 0; background: var(--surface); color: var(--ink-2); font: inherit; font-weight: 700; cursor: pointer; }
+.yn button + button { border-left: 1.5px solid var(--line-input); }
+.yn button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.prepare, .reasons { margin: 0; padding-left: 20px; display: grid; gap: 6px; text-align: left; }
+@media (max-width: 860px) { .check-page { grid-template-columns: minmax(0, 1fr); } .check-result { position: static; } }
+@media (max-width: 520px) { .yn-list li { flex-direction: column; align-items: stretch; } .yn { align-self: flex-start; } }
+
+/* ---------- sign-up in three screens ---------- */
+.steps3 { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.steps3 li { flex: 1; padding-top: 8px; border-top: 4px solid var(--line); }
+.steps3 li.on { border-top-color: var(--blue); color: var(--blue); }
+.steps3 li.done { border-top-color: var(--ok); color: var(--ok-ink); }
+.auth-actions { display: flex; gap: 10px; }
