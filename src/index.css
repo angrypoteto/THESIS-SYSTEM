@@ -912,3 +912,50 @@ label.inline select { width: auto; }
 .steps3 li.on { border-top-color: var(--blue); color: var(--blue); }
 .steps3 li.done { border-top-color: var(--ok); color: var(--ok-ink); }
 .auth-actions { display: flex; gap: 10px; }
+
+/* ---------- student home (redesign, Nov 24) ---------- */
+.do-now { display: flex; gap: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; border-radius: 20px; padding: 26px 28px; margin-bottom: 18px;
+  background: var(--blue); color: #fff; box-shadow: 0 14px 30px rgba(0, 56, 168, 0.26); }
+.do-now .eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #BFD0F2; }
+.do-now h2 { color: #fff; font-size: clamp(22px, 3vw, 30px); margin: 4px 0 6px; line-height: 1.12; }
+.do-now p { margin: 0; color: #DCE6F6; max-width: 46ch; }
+.do-now-text { flex: 1 1 320px; display: grid; gap: 8px; }
+.do-now-facts { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; color: #fff; font-size: 15px; font-weight: 600; }
+.do-now-count { text-align: center; flex: none; }
+.do-now-count b { display: block; font-family: var(--display); font-size: 64px; line-height: 1; }
+.do-now-count span { color: #DCE6F6; }
+.do-now.warn { background: #8A3C07; box-shadow: 0 14px 30px rgba(138, 60, 7, 0.25); }
+.do-now.calm { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
+.do-now.calm h2 { color: var(--navy); }
+.do-now.calm p { color: var(--muted); }
+.do-now.calm .eyebrow { color: var(--blue); }
+.do-now.calm .btn-on-blue { background: var(--blue); color: #fff; }
+.doc-line { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
+.doc-line span:last-child { font-weight: 700; white-space: nowrap; }
+.help-card { background: var(--navy); color: #DCE6F6; border: 0; display: grid; gap: 4px; }
+.help-card b { color: #fff; }
+.checklist li.missing-now { color: var(--error); font-weight: 600; }
+/* application steps: progress ring and finished ticks (redesign, Nov 24) */
+.ring-row { display: flex; align-items: center; gap: 12px; padding: 2px 4px 12px; }
+.ring-row span { display: grid; line-height: 1.25; }
+.ring-row b { font-family: var(--display); color: var(--navy); font-size: 16px; }
+.ring-row small { color: var(--muted); font-size: 12.5px; }
+.step-btn.done .num { background: var(--ok); color: #fff; border-color: var(--ok); }
+
+/* ---------- milestone moments: submitted and selected (redesign, Nov 24) ---------- */
+.ref-code { display: inline-flex; gap: 14px; background: var(--surface); border: 1px dashed var(--line-input); border-radius: 12px; padding: 8px 16px; font-size: 14px; color: var(--muted); }
+.ref-code b { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--ink); letter-spacing: 0.04em; }
+.next-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; width: 100%; max-width: 760px; text-align: left; counter-reset: nx; }
+.next-list li { counter-increment: nx; background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 14px 52px; display: grid; gap: 2px; position: relative; }
+.next-list li::before { content: counter(nx); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line-input); display: grid; place-items: center; font-weight: 800; font-size: 13px; color: var(--muted); background: var(--surface); }
+.next-list li.now::before { border-color: var(--blue); color: var(--blue); }
+.next-list span { font-size: 13.5px; color: var(--muted); }
+.cert { background: var(--surface); border-radius: 22px; padding: 6px; border: 2px solid var(--gold); box-shadow: 0 16px 34px rgba(11, 31, 77, 0.14); margin-bottom: 18px; animation: cert-in 0.8s cubic-bezier(.2, .8, .3, 1) both; }
+.cert-in { border: 1px solid #E8D3B0; border-radius: 17px; padding: 34px 24px; text-align: center; display: grid; gap: 10px; justify-items: center;
+  background: radial-gradient(circle at 50% 0%, var(--gold-soft) 0%, var(--surface) 62%); }
+.cert-in h2 { font-size: clamp(30px, 4.6vw, 46px); margin: 0; }
+.cert-in p { margin: 0; font-size: 17px; color: var(--ink-2); }
+.cert-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #8A6427; }
+.cert-id { font-size: 15px !important; background: var(--bg); border-radius: 10px; padding: 6px 14px; }
+@keyframes cert-in { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cert { animation: none; } }

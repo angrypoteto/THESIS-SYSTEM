@@ -177,12 +177,27 @@ export function ApplicationPage() {
     documents: `${data.documents.length} of ${data.docTypes.filter((t) => t.required).length} required`,
     submit: 'Declaration',
   }
+  // which sections are filled in (for the ticks and the progress ring)
+  const reqDocs = data.docTypes.filter((t) => t.required && t.stage <= stage)
+  const done: Record<StepKey, boolean> = {
+    school: data.app.gwa_declared != null,
+    info: data.app.height_in != null,
+    education: (data.app.character_refs ?? []).filter((r) => r.name?.trim()).length >= 3,
+    household: data.members.length > 0 && data.app.declared_monthly_income != null,
+    living: Object.keys(data.app.ses_inputs ?? {}).length > 0,
+    location: data.applicant.home_lat != null,
+    documents: reqDocs.every((t) => data.documents.some((d) => d.type_code === t.code)),
+    submit: false,
+  }
+  const work = steps.filter((x) => x.key !== 'submit')
+  const doneCount = work.filter((x) => done[x.key]).length
+  const pct = work.length ? doneCount / work.length : 0
 
   return (
     <>
       <div className="page-head" style={{ marginBottom: 18 }}>
         <div>
-          <h1>My application · {stage === 1 ? 'Step 1: initial screening' : 'Step 2: requirements for qualified examinees'}</h1>
+          <h1>{stage === 1 ? 'Step 1 · Apply online' : 'Step 2 · Requirements'}</h1>
           <p>
             {cycle.name} · closes {new Date(cycle.closes_at).toLocaleDateString('en-PH')} ·{' '}
             <Link to="/profile">edit school / barangay in your profile</Link>
@@ -200,10 +215,17 @@ export function ApplicationPage() {
       {readOnly && <p className="banner warn">{stage === 1 ? 'The application period is closed' : 'The step 2 deadline has passed'}; this draft can no longer be edited.</p>}
       <div className="form-layout">
         <nav className="step-list" aria-label="Application steps">
-          <p>Saved as you go</p>
+          <div className="ring-row">
+            <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">
+              <circle cx="29" cy="29" r="24" fill="none" stroke="var(--line)" strokeWidth="7" />
+              <circle cx="29" cy="29" r="24" fill="none" stroke="var(--blue)" strokeWidth="7" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 24} strokeDashoffset={2 * Math.PI * 24 * (1 - pct)} transform="rotate(-90 29 29)" />
+            </svg>
+            <span><b>{doneCount} of {work.length} done</b><small>Saved when you press Save</small></span>
+          </div>
           {steps.map((s, i) => (
-            <button key={s.key} type="button" className={`step-btn ${s.key === current ? 'active' : ''}`} aria-current={s.key === current ? 'step' : undefined} onClick={() => setStep(s.key)}>
-              <span className="num">{i + 1}</span>
+            <button key={s.key} type="button" className={`step-btn ${s.key === current ? 'active' : ''} ${done[s.key] ? 'done' : ''}`} aria-current={s.key === current ? 'step' : undefined} onClick={() => setStep(s.key)}>
+              <span className="num">{done[s.key] ? '✓' : i + 1}</span>
               <span className="t"><b>{s.label}</b><small>{hints[s.key]}</small></span>
             </button>
           ))}
@@ -223,7 +245,7 @@ export function ApplicationPage() {
             </button>
             {idx < steps.length - 1 && (
               <button className="btn btn-lg" onClick={() => setStep(steps[idx + 1].key)}>
-                Next: {steps[idx + 1].label} →
+                Continue to {steps[idx + 1].label.toLowerCase()} →
               </button>
             )}
           </div>

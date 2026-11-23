@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Journey, journeyStop, SealStamp } from '../../components/Journey'
+import { Logo } from '../../components/Logos'
+import { useAuth } from '../../auth/AuthProvider'
 import { supabase } from '../../lib/supabase'
 import { DocCard } from './DocumentsSection'
 import type { ApplicationStatus } from '../../lib/types'
@@ -68,6 +71,8 @@ function milestoneReached(stage: number, status: ApplicationStatus): number {
 
 export function StatusView({ data, reload }: { data: AppData; reload: () => Promise<void> }) {
   const { app, documents, docTypes, cycle } = data
+  const { profile } = useAuth()
+  const firstName = profile?.full_name?.split(' ')[0] ?? ''
   const rejected = documents.filter((d) => d.verification_status === 'rejected')
   const [resubmitMsg, setResubmitMsg] = useState<string | null>(null)
   async function resubmit() {
@@ -123,6 +128,22 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
   return (
     <>
       <h1>My application</h1>
+      {['submitted', 'under_review'].includes(app.status) && (
+        <section className="card moment" aria-labelledby="sent-h">
+          <SealStamp />
+          <h1 id="sent-h">Step {app.stage ?? 1} submitted</h1>
+          <p>Salamat{firstName ? `, ${firstName}` : ''}. Your application is with the Mandaluyong Educational Service Office.</p>
+          <p className="ref-code">Reference <b>CMCS-{String(cycle.school_year).slice(2, 4)}-{app.id.slice(0, 4).toUpperCase()}</b></p>
+          <ol className="next-list">
+            <li className="now"><b>The office checks your documents</b><span>Usually 1 to 3 working days</span></li>
+            <li><b>{(app.stage ?? 1) === 1 ? 'You get the exam schedule' : 'You get the interview schedule'}</b><span>By email and here, if you are cleared</span></li>
+            <li><b>{(app.stage ?? 1) === 1 ? 'Qualifying exam at RTU' : 'Interview at City Hall'}</b><span>{(app.stage ?? 1) === 1 && cycle.exam_at ? new Date(cycle.exam_at).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date to follow'}</span></li>
+          </ol>
+        </section>
+      )}
+      <section className="card" aria-label="Your scholarship path" style={{ padding: '20px 12px 16px' }}>
+        <Journey {...journeyStop(app.status, app.stage)} notes={['Submitted', cycle.exam_at ? new Date(cycle.exam_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : null, 'If you pass', 'City Hall', 'In the portal']} />
+      </section>
       <section className="card">
         <p className={`pill ${PILL_TONE[app.status] ?? ''}`}>{STATUS_TEXT[app.status]}</p>
         {app.applicant_no && <p style={{ margin: '8px 0 0' }}>Applicant ID: <strong>{app.applicant_no}</strong></p>}
@@ -198,7 +219,7 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
         </section>
       )}
 
-      <Outcome app={app} result={result} reason={reason} waitPos={waitPos} take={take} slots={cycle.slots} />
+      <Outcome app={app} result={result} reason={reason} waitPos={waitPos} take={take} slots={cycle.slots} term={`${cycle.term}, School Year ${cycle.school_year}`} name={firstName} />
 
       {gates.length > 0 && (
         <section className="card">
@@ -236,21 +257,29 @@ export function StatusView({ data, reload }: { data: AppData; reload: () => Prom
 }
 
 /** Plain-language result for each closed or waiting outcome: what happened, why, and what happens next. */
-function Outcome({ app, result, reason, waitPos, take, slots }: {
-  app: AppData['app']; result: Result | null; reason: string | null; waitPos: number | null; take: number; slots: number
+function Outcome({ app, reason, waitPos, take, slots, term, name }: {
+  app: AppData['app']; result: Result | null; reason: string | null; waitPos: number | null; take: number; slots: number; term: string; name: string
 }) {
-  const rank = result ? <>Your rank in the final ranking is <strong>#{result.rank}</strong>. </> : null
+  // no rank numbers for the applicant, following the office's choice for the emails (redesign, Nov 24)
+  const rank = null
   const why = reason ? <p className="small"><strong>Reason recorded by the office:</strong> {reason}</p> : null
   let title: string
   let body: React.ReactNode
   switch (app.status) {
     case 'approved':
-      title = 'You were selected'
-      body = <>
-        <p style={{ marginTop: 0 }}>Congratulations. {rank}You are within the {slots} slots of this cycle{app.category ? <> as a <strong>{app.category}</strong></> : ''}.</p>
-        <p className="small muted">The office will email you the next steps, such as the orientation. Keep your contact details in your profile up to date.</p>
-      </>
-      break
+      // the result reveal: a certificate-style card with the seal (redesign, Nov 24)
+      return (
+        <section className="cert" aria-labelledby="outcome">
+          <div className="cert-in">
+            <Logo which="mandaluyong" size={88} />
+            <span className="cert-eyebrow">City of Mandaluyong · CMCS Program</span>
+            <h2 id="outcome">Congratulations{name ? `, ${name}` : ''}!</h2>
+            <p>You are a <strong>CMCS scholar</strong> for {term}{app.category ? <>, as a <strong>{app.category}</strong></> : ''}.</p>
+            {app.applicant_no && <p className="cert-id">Applicant ID <strong>{app.applicant_no}</strong></p>}
+            <p className="small muted" style={{ maxWidth: '46ch' }}>The office will message you the next steps, such as the orientation. Keep your contact details in your profile up to date.</p>
+          </div>
+        </section>
+      )
     case 'waitlisted':
       title = 'You are on the waitlist'
       body = <>
