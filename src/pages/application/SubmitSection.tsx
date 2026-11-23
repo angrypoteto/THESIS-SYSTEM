@@ -29,7 +29,6 @@ export function SubmitSection({ data, readOnly, reload }: SectionProps) {
           ['Household roster', members.length > 0 && rosterProblems(members).length === 0],
           ['Monthly household income', app.declared_monthly_income != null],
           ['Living conditions', Boolean(s.housing_tenure && s.wall_material && s.water_source && s.parent_education && s.parent_occupation && s.has_electricity !== undefined)],
-          ['Home pinned on the map', applicant.home_lat != null],
         ] as [string, boolean][])
       : ([
           ['1st and 2nd semester grades', app.grade_sem1 != null && app.grade_sem2 != null],

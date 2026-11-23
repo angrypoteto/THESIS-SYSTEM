@@ -222,7 +222,6 @@ export function Profile() {
                 </select>
               </label>
             </div>
-            <p className="muted small">You will pin your home on a map in step 2 of the application.</p>
           </>
         )}
         {msg && <p className={msg.kind === 'ok' ? 'success' : 'error'}>{msg.text}</p>}
