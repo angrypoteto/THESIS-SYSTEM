@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useReveal } from './useReveal'
 import { NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
 import type { ProgramCycle } from '../lib/types'
 import { BrandMark, Icon, type IconName } from './Icons'
+import { CycleProgress } from './CycleProgress'
 
 export interface StaffContext {
   cycle: ProgramCycle | null
@@ -49,6 +51,7 @@ export function StaffLayout() {
   const [dupCount, setDupCount] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   const [cyclesTick, setCyclesTick] = useState(0)
+  useReveal()
 
   useEffect(() => {
     supabase
@@ -130,10 +133,13 @@ export function StaffLayout() {
           )}
         </nav>
         <div className="side-user">
-          <span>
-            {profile?.full_name}
-            <small>{isAdmin ? 'Administrator' : 'Evaluator'}</small>
-          </span>
+          <NavLink to="/staff/profile" className={({ isActive }) => `side-me${isActive ? ' active' : ''}`} title={`${profile?.full_name ?? ''} · My profile`}>
+            <span className="side-avatar" aria-hidden="true">{(profile?.full_name ?? '?').split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'}</span>
+            <span>
+              <span className="side-name">{profile?.full_name}</span>
+              <small>{isAdmin ? 'Administrator' : 'Evaluator'} · My profile</small>
+            </span>
+          </NavLink>
           <button
             type="button"
             className="side-signout"
@@ -149,6 +155,7 @@ export function StaffLayout() {
         </div>
       </aside>
       <main className="staff-main">
+        {cycle && <CycleProgress cycle={cycle} />}
         <Outlet context={ctx} />
       </main>
     </div>

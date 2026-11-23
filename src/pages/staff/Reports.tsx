@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { LoadMore, useLazyCount } from '../../components/Skeleton'
 import { Link } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { download, type ReportRow, reportCsv, STATUS_LABEL } from '../../lib/report'
@@ -15,6 +16,7 @@ export function Reports() {
   const { cycle } = useStaff()
   const [rows, setRows] = useState<ReportRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<'summary' | 'list'>('summary')
   const [view, setView] = useState<'ranked' | 'all'>('ranked')
   const cycleId = cycle?.id
 
@@ -48,6 +50,7 @@ export function Reports() {
   const maxStatus = Math.max(1, ...byStatus.map(([, n]) => n))
   const maxCourse = Math.max(1, ...byCourse.map(([, n]) => n))
 
+  const lazy = useLazyCount(shown.length, 40)
   if (!cycle) return <p className="muted">No program cycle yet.</p>
 
   const stamp = new Date().toISOString().slice(0, 10)
@@ -65,14 +68,20 @@ export function Reports() {
       </div>
       {error && <p className="error" role="alert">{error}</p>}
 
-      <div className="grid four" style={{ marginBottom: 0 }}>
-        <div className="stat"><div className="stat-value">{rows ? all.length : '…'}</div><div className="stat-label">Applications submitted</div></div>
-        <div className="stat"><div className="stat-value">{approved.length} / {cycle.slots}</div><div className="stat-label">Approved / slots</div></div>
-        {allowance > 0 && <div className="stat"><div className="stat-value">{peso(allowance)}</div><div className="stat-label">Allowances of approved (per release)</div></div>}
-        <div className="stat"><div className="stat-value">{overrides}</div><div className="stat-label">Decisions against the recommendation</div></div>
+      <div className="status-line" role="status">
+        <span className="pill info small">{rows ? all.length : '…'} submitted</span>
+        <span className="pill ok small">{approved.length} of {cycle.slots} slots approved</span>
+        {allowance > 0 && <span className="pill small">{peso(allowance)} allowances per release</span>}
+        <span className={`pill small ${overrides ? 'warn' : ''}`}>{overrides} decision{overrides === 1 ? '' : 's'} against the recommendation</span>
       </div>
 
-      <div className="grid two">
+      <div className="chips no-print" role="group" aria-label="Report">
+        <button type="button" className="chip" aria-pressed={tab === 'summary'} onClick={() => setTab('summary')}>Summary</button>
+        <button type="button" className="chip" aria-pressed={tab === 'list' && view === 'ranked'} onClick={() => { setTab('list'); setView('ranked') }}>Ranked list</button>
+        <button type="button" className="chip" aria-pressed={tab === 'list' && view === 'all'} onClick={() => { setTab('list'); setView('all') }}>All applications</button>
+      </div>
+
+      <div className={`grid two ${tab === 'summary' ? '' : 'tab-hidden'}`}>
         <section className="card">
           <h2>By status</h2>
           <table className="table"><tbody>
@@ -97,12 +106,8 @@ export function Reports() {
         </section>
       </div>
 
-      <section className="card">
-        <div className="chips no-print" role="group" aria-label="Rows">
-          <button type="button" className="chip" aria-pressed={view === 'ranked'} onClick={() => setView('ranked')}>Ranked list</button>
-          <button type="button" className="chip" aria-pressed={view === 'all'} onClick={() => setView('all')}>All applications</button>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
+      <section className={`card ${tab === 'list' ? '' : 'tab-hidden'}`}>
+        <div className="scroll-box" style={{ maxHeight: 'calc(100vh - var(--stick-top) - 300px)' }}>
           <table className="table report-table" style={{ minWidth: 1100 }}>
             <thead>
               <tr><th>Rank</th><th>Applicant</th><th>Barangay</th><th className="num">Income / person</th><th className="num">SES</th>
@@ -110,7 +115,7 @@ export function Reports() {
                 <th>Status</th><th className="num">Allowance</th><th>Interview</th></tr>
             </thead>
             <tbody>
-              {shown.map((r) => (
+              {shown.slice(0, lazy.count).map((r) => (
                 <tr key={r.application_id}>
                   <td>{r.rank ?? '—'}{r.recommended ? <span className="pill ok small" style={{ marginLeft: 6 }}>slot</span> : null}</td>
                   <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/reports' }}>{r.full_name}</Link><div className="small muted">{r.student_number ?? ''}{r.course ? ` · ${r.course}` : ''}</div></td>
@@ -128,6 +133,7 @@ export function Reports() {
               {rows && shown.length === 0 && <tr><td colSpan={11} className="muted" style={{ padding: 24 }}>{view === 'ranked' ? 'No ranking run for this cycle yet.' : 'No submitted applications yet.'}</td></tr>}
             </tbody>
           </table>
+          <LoadMore sentinel={lazy.sentinel} more={lazy.more} shown={lazy.count} total={shown.length} />
         </div>
         <p className="small muted" style={{ marginBottom: 0 }}>
           Income per person is the verified declared income, or the model&rsquo;s estimate when no document supports it. The export

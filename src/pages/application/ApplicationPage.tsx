@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { SkeletonPage } from '../../components/Skeleton'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthProvider'
+import { departmentOf } from '../../lib/office'
 import { supabase } from '../../lib/supabase'
 import type { ApplicantRow, Application, DocumentRow, DocumentType, HouseholdMember, ProgramCycle } from '../../lib/types'
 import { DocumentsSection } from './DocumentsSection'
@@ -58,6 +60,21 @@ export function ApplicationPage() {
   const [isOpen, setIsOpen] = useState(false)
   const [data, setData] = useState<AppData | null>(null)
   const [step, setStep] = useState<StepKey>('school')
+  const [needDone, setNeedDone] = useState(false)
+  // the profile must be complete before the application opens (owner, Nov 24)
+  const [missing, setMissing] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!profile) return
+    supabase.from('applicants').select('sex,address_line,barangay_id,shs_school,school_id,year_level,department,course').eq('id', profile.id).maybeSingle()
+      .then(({ data: a }) => {
+        const p = (a ?? {}) as Record<string, unknown>
+        const need: [string, string][] = [['sex', 'Sex'], ['barangay_id', 'Barangay'], ['address_line', 'Complete address'],
+          ['shs_school', 'Senior high school'], ['school_id', 'School (RTU)'], ['year_level', 'Year level'], ['department', 'College department'], ['course', 'Course']]
+        // the department follows from the course when it was not saved separately (older profiles)
+        if (!p.department && p.course) p.department = departmentOf(String(p.course)) || null
+        setMissing(need.filter(([k]) => p[k] == null || p[k] === '').map(([, label]) => label))
+      })
+  }, [profile])
 
   const load = useCallback(async () => {
     if (!profile) return
@@ -122,7 +139,20 @@ export function ApplicationPage() {
     }
   }
 
-  if (loading) return <p className="muted">Loading your application…</p>
+  if (loading || missing == null) return <SkeletonPage cards={2} side />
+  if (missing.length > 0 && (!data || (data.app.status === 'draft' && (data.app.stage ?? 1) === 1))) {
+    return (
+      <section className="card narrow profile-first">
+        <span className="eyebrow">Before you apply</span>
+        <h1>Complete your profile first</h1>
+        <p className="muted">The application uses your school, course and address from your profile. Fill in these {missing.length === 1 ? 'one' : missing.length} and come back:</p>
+        <ul className="checklist">
+          {missing.map((m) => <li key={m} className="missing missing-now"><span aria-hidden>○</span> {m}</li>)}
+        </ul>
+        <Link className="btn btn-lg" to="/profile">Complete my profile</Link>
+      </section>
+    )
+  }
   if (error) return <p className="error">{error}</p>
   if (!cycle) {
     return (
@@ -177,12 +207,32 @@ export function ApplicationPage() {
     documents: `${data.documents.length} of ${data.docTypes.filter((t) => t.required).length} required`,
     submit: 'Declaration',
   }
+  // which sections are filled in (for the ticks and the progress ring)
+  const reqDocs = data.docTypes.filter((t) => t.required && t.stage <= stage)
+  const done: Record<StepKey, boolean> = {
+    school: data.app.gwa_declared != null,
+    info: data.app.height_in != null,
+    education: (data.app.character_refs ?? []).filter((r) => r.name?.trim()).length >= 3,
+    household: data.members.length > 0 && data.app.declared_monthly_income != null,
+    living: Object.keys(data.app.ses_inputs ?? {}).length > 0,
+    location: data.applicant.home_lat != null,
+    documents: reqDocs.every((t) => data.documents.some((d) => d.type_code === t.code)),
+    submit: false,
+  }
+  const work = steps.filter((x) => x.key !== 'submit')
+  const doneCount = work.filter((x) => done[x.key]).length
+  const pct = work.length ? doneCount / work.length : 0
+  // a step opens only when every step before it is finished (owner, Nov 24); a locked step cannot be opened
+  const unlocked = steps.map((_, i) => steps.slice(0, i).filter((x) => x.key !== 'submit').every((x) => done[x.key]))
+  const vIdx = unlocked[idx] ? idx : unlocked.lastIndexOf(true)
+  const view = steps[vIdx].key
+  const firstOpen = steps.find((x, i) => unlocked[i] && !done[x.key] && x.key !== 'submit')
 
   return (
     <>
       <div className="page-head" style={{ marginBottom: 18 }}>
         <div>
-          <h1>My application · {stage === 1 ? 'Step 1: initial screening' : 'Step 2: requirements for qualified examinees'}</h1>
+          <h1>{stage === 1 ? 'Step 1 · Apply online' : 'Step 2 · Requirements'}</h1>
           <p>
             {cycle.name} · closes {new Date(cycle.closes_at).toLocaleDateString('en-PH')} ·{' '}
             <Link to="/profile">edit school / barangay in your profile</Link>
@@ -200,35 +250,64 @@ export function ApplicationPage() {
       {readOnly && <p className="banner warn">{stage === 1 ? 'The application period is closed' : 'The step 2 deadline has passed'}; this draft can no longer be edited.</p>}
       <div className="form-layout">
         <nav className="step-list" aria-label="Application steps">
-          <p>Saved as you go</p>
+          <div className="ring-row">
+            <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">
+              <circle cx="29" cy="29" r="24" fill="none" stroke="var(--line)" strokeWidth="7" />
+              <circle cx="29" cy="29" r="24" fill="none" stroke="var(--blue)" strokeWidth="7" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 24} strokeDashoffset={2 * Math.PI * 24 * (1 - pct)} transform="rotate(-90 29 29)" />
+            </svg>
+            <span><b>{doneCount} of {work.length} done</b><small>Saved when you press Save</small></span>
+          </div>
           {steps.map((s, i) => (
-            <button key={s.key} type="button" className={`step-btn ${s.key === current ? 'active' : ''}`} aria-current={s.key === current ? 'step' : undefined} onClick={() => setStep(s.key)}>
-              <span className="num">{i + 1}</span>
-              <span className="t"><b>{s.label}</b><small>{hints[s.key]}</small></span>
+            <button key={s.key} type="button" className={`step-btn ${s.key === view ? 'active' : ''} ${done[s.key] ? 'done' : ''} ${unlocked[i] ? '' : 'locked'}`}
+              aria-current={s.key === view ? 'step' : undefined} disabled={!unlocked[i]}
+              title={unlocked[i] ? undefined : `Finish ${firstOpen?.label.toLowerCase() ?? 'the steps before'} first`}
+              onClick={() => { setNeedDone(false); setStep(s.key) }}>
+              <span className="num">{done[s.key] ? '✓' : unlocked[i] ? i + 1 : <LockIcon />}</span>
+              <span className="t"><b>{s.label}</b><small>{unlocked[i] ? hints[s.key] : `Opens after ${firstOpen?.label.toLowerCase() ?? 'the steps before'}`}</small></span>
             </button>
           ))}
         </nav>
         <div className="form-panel">
-          {current === 'household' && <HouseholdSection {...props} />}
-          {current === 'living' && <LivingSection {...props} />}
-          {current === 'school' && <GradesSection {...props} />}
-          {current === 'info' && <InfoSheetSection {...props} />}
-          {current === 'education' && <EducationSection {...props} />}
-          {current === 'location' && <LocationSection {...props} />}
-          {current === 'documents' && <DocumentsSection {...props} />}
-          {current === 'submit' && <SubmitSection {...props} />}
+          {view === 'household' && <HouseholdSection {...props} />}
+          {view === 'living' && <LivingSection {...props} />}
+          {view === 'school' && <GradesSection {...props} />}
+          {view === 'info' && <InfoSheetSection {...props} />}
+          {view === 'education' && <EducationSection {...props} />}
+          {view === 'location' && <LocationSection {...props} />}
+          {view === 'documents' && <DocumentsSection {...props} />}
+          {view === 'submit' && <SubmitSection {...props} />}
           <div className="step-nav">
-            <button className="btn btn-plain" disabled={idx === 0} onClick={() => setStep(steps[idx - 1].key)}>
-              ← Back
-            </button>
-            {idx < steps.length - 1 && (
-              <button className="btn btn-lg" onClick={() => setStep(steps[idx + 1].key)}>
-                Next: {steps[idx + 1].label} →
+            {vIdx > 0 ? (
+              <button className="btn btn-plain" onClick={() => { setNeedDone(false); setStep(steps[vIdx - 1].key) }}>
+                ← Back
+              </button>
+            ) : <span />}
+            {vIdx < steps.length - 1 && (
+              <button className="btn btn-lg" onClick={() => {
+                if (!done[view]) return setNeedDone(true)
+                setNeedDone(false)
+                setStep(steps[vIdx + 1].key)
+              }}>
+                Continue to {steps[vIdx + 1].label.toLowerCase()} →
               </button>
             )}
           </div>
+          {needDone && !done[view] && (
+            <p className="field-error step-need" role="alert">
+              Finish this step and press Save first. {steps[vIdx + 1]?.label} opens once {steps[vIdx].label.toLowerCase()} is complete.
+            </p>
+          )}
         </div>
       </div>
     </>
+  )
+}
+
+function LockIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
   )
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { SkeletonRows } from '../../components/Skeleton'
 import { useStaff } from '../../components/StaffLayout'
 import { download } from '../../lib/report'
 import { supabase } from '../../lib/supabase'
@@ -115,7 +116,7 @@ export function Models() {
                 )
               })}
               {models && models.length === 0 && <tr><td colSpan={7} className="muted">No models registered.</td></tr>}
-              {!models && <tr><td colSpan={7} className="muted">Loading…</td></tr>}
+              {!models && <SkeletonRows rows={3} cols={7} />}
             </tbody>
           </table>
         </div>

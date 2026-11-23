@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LoadMore, useLazyCount } from '../../components/Skeleton'
 import { Link } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { loadCycleApplications, type StaffAppRow } from '../../lib/staff'
@@ -29,6 +30,7 @@ export function Applicants() {
     return (status === 'all' || r.status === status) && name.includes(q.toLowerCase())
   }), [rows, q, status])
 
+  const lazy = useLazyCount(shown.length, 40)
   return (
     <>
       <div className="page-head">
@@ -38,7 +40,7 @@ export function Applicants() {
         </div>
       </div>
       <div className="row" style={{ maxWidth: 640 }}>
-        <label className="field">Search name or student number<input value={q} onChange={(e) => setQ(e.target.value)} /></label>
+        <label className="field">Search name or student number<input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. Lacson or 2026-92031" /></label>
         <label className="field">Status
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="all">All</option>
@@ -46,11 +48,12 @@ export function Applicants() {
           </select>
         </label>
       </div>
-      <div className="table-wrap">
+      <p className="small muted" style={{ margin: '-6px 0 0' }}>Showing {shown.length} of {rows?.length ?? 0}</p>
+      <div className="table-wrap scroll-box" style={{ maxHeight: 'calc(100vh - var(--stick-top) - 250px)' }}>
         <table className="table" style={{ minWidth: 760 }}>
           <thead><tr><th>Applicant</th><th>School</th><th>Household</th><th>GWA</th><th>Status</th><th><span className="sr">Open</span></th></tr></thead>
           <tbody>
-            {shown.map((r) => (
+            {shown.slice(0, lazy.count).map((r) => (
               <tr key={r.id}>
                 <td><strong>{r.applicants?.profiles?.full_name}</strong><div className="small muted">{r.applicants?.profiles?.student_number} · {r.applicants?.barangays?.name}</div></td>
                 <td>{r.applicants?.schools?.name ?? '—'}</td>
@@ -63,6 +66,7 @@ export function Applicants() {
             {rows && !shown.length && <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>No applicants match.</td></tr>}
           </tbody>
         </table>
+          <LoadMore sentinel={lazy.sentinel} more={lazy.more} shown={lazy.count} total={shown.length} />
       </div>
     </>
   )

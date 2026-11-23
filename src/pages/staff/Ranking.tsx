@@ -32,6 +32,7 @@ export function Ranking() {
   const [placeholder, setPlaceholder] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [tab, setTab] = useState<'ranking' | 'waitlist' | 'how' | null>(null)
   const cycleId = cycle?.id
 
   const loadRuns = useCallback(async () => {
@@ -99,15 +100,16 @@ export function Ranking() {
   const total = recommended.reduce((s, r) => s + Number(r.pay_tier_amount ?? 0), 0)
   const deadline = cycle?.step2_closes_at ? new Date(cycle.step2_closes_at) : null
   const fmt = (d: Date) => d.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })
+  const finalizedAt = cycle?.selection_finalized_at ?? null
+  const below = results.filter((r) => !r.recommended)
+  const shownTab = tab ?? (finalizedAt ? 'waitlist' : 'ranking')
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Ranking · {cycle?.name}</h1>
-          <p>{current
-            ? `${current.is_official ? 'Official ranking' : current.method === 'saw' ? 'SAW comparison' : 'Ranked automatically'} · ${current.applicant_count} eligible · ${slots} slots · updated ${new Date(current.started_at).toLocaleString('en-PH')}`
-            : 'Nobody is eligible for ranking yet.'}</p>
+          <h1>Ranking</h1>
+          <p>{cycle?.name} · TOPSIS with the office's AHP weights</p>
         </div>
         {!hasOfficial && results.length > 0 && (
           <div className="actions" style={{ marginTop: 0 }}>
@@ -115,79 +117,123 @@ export function Ranking() {
           </div>
         )}
       </div>
-      {msg && <p className={msg.kind === 'ok' ? 'success' : 'error'} role="status">{msg.text}</p>}
-      {placeholder && (
-        <div className="banner warn" role="note">
-          The active weights are the Build Plan's placeholder judgments. Replace them with the office staff's AHP judgments
-          (Criteria &amp; weights) before step 2 closes: the final selection uses the weights active at that moment.
-        </div>
-      )}
-      {!hasOfficial && (deadline ? (
-        <div className="banner info" role="note">
-          Only applicants who passed the interview are ranked; the order updates by itself. The final selection is automatic:
-          after step 2 closes ({fmt(deadline)}), once every step-2 application has been checked and every interview is settled
-          (Passed or Forfeited), the top {slots} are approved and the rest are waitlisted.
-          {deadline.getTime() < Date.now() && ' Step 2 has closed; the selection is made within the hour once the last interview is settled.'}
-        </div>
-      ) : (
-        <div className="banner warn" role="note">
-          No step 2 deadline is set for this cycle, so the final selection cannot happen yet. Set the deadline on Cycles &amp; slots:
-          the selection is made automatically after it.
-        </div>
-      ))}
 
-      {runs.length > 1 && (
-        <label className="field" style={{ maxWidth: 360 }}>Show run
-          <select value={runId ?? ''} onChange={(e) => setRunId(Number(e.target.value))}>
-            {runs.map((r) => <option key={r.id} value={r.id}>#{r.id} · {r.method.toUpperCase()} · {new Date(r.started_at).toLocaleString('en-PH')}{r.is_official ? ' · official' : ''}</option>)}
-          </select>
-        </label>
-      )}
-
-      {results.length > 0 && (
-        <div className="grid four" style={{ marginBottom: 0 }}>
-          <div className="stat"><div className="stat-value">{recommended.length} of {results.length}</div><div className="stat-label">Recommended for a slot</div></div>
-          {total > 0 && <div className="stat"><div className="stat-value">PHP {total.toLocaleString()}</div><div className="stat-label">Allowances per release</div></div>}
-          <div className="stat"><div className="stat-value">{tau == null ? '—' : tau.toFixed(2)}</div><div className="stat-label">Kendall τ vs SAW baseline</div></div>
-        </div>
-      )}
-
-      <div className="table-wrap">
-        <table className="table" style={{ minWidth: 900 }}>
-          <thead>
-            <tr><th>Rank</th><th>Applicant</th><th>Closeness</th><th>Income / person</th><th>SES</th><th>Household</th><th>GWA</th><th>Selection</th></tr>
-          </thead>
-          <tbody>
-            {results.map((r, i) => (
-              <RowWithLine key={r.application_id} r={r} showLine={i === slots - 1 && results.length > slots} />
-            ))}
-            {!results.length && <tr><td colSpan={9} className="muted" style={{ padding: 24 }}>{runs.length ? 'This run has no rows.' : 'Nobody to rank yet. Applicants appear here by themselves once their interview is marked Passed.'}</td></tr>}
-          </tbody>
-        </table>
+      <div className="status-line" role="status">
+        {current ? (
+          <>
+            <span className="pill info small">{current.applicant_count} ranked</span>
+            <span className="pill small">{slots} slots</span>
+            {current.is_official && <span className="pill ok small">official</span>}
+            <span className="sep">·</span>
+            {finalizedAt ? <span>Final selection made automatically <b>{fmt(new Date(finalizedAt))}</b>.</span>
+              : hasOfficial ? <span>The ranking is official; the system is making the final selection.</span>
+              : deadline ? <span>Updates by itself. Final selection is automatic after <b>{fmt(deadline)}</b>, once every interview is settled{deadline.getTime() < Date.now() ? ' (step 2 has closed)' : ''}.</span>
+              : <span>Updates by itself.</span>}
+          </>
+        ) : <span>Nobody to rank yet. Applicants appear here by themselves once their interview is marked Passed.</span>}
       </div>
-      {hasOfficial && cycleId != null && <Waitlist cycleId={cycleId} slots={slots} finalizedAt={cycle?.selection_finalized_at ?? null} />}
 
-      <p className="small muted" style={{ margin: 0 }}>Ties are broken by lower income per person, then higher GWA, then earlier submission. The whole pool is ranked in one stored run, so the order is reproducible.</p>
+      {msg && <p className={msg.kind === 'ok' ? 'success' : 'error'} role="status">{msg.text}</p>}
+      {placeholder && !hasOfficial && (
+        <div className="banner warn" role="note">
+          The active weights are the Build Plan's placeholders. Enter the office staff's AHP judgments on Criteria &amp; weights before step 2
+          closes: the final selection uses the weights active at that moment.
+        </div>
+      )}
+      {!hasOfficial && !deadline && (
+        <div className="banner warn" role="note">
+          No step 2 deadline is set, so the final selection cannot happen yet. <Link to="/admin/cycles">Set it on Cycles &amp; slots</Link>.
+        </div>
+      )}
+
+      <div className="chips" role="group" aria-label="Ranking views">
+        <button type="button" className="chip" aria-pressed={shownTab === 'ranking'} onClick={() => setTab('ranking')}>
+          Ranking<span className="count">{results.length}</span>
+        </button>
+        {hasOfficial && (
+          <button type="button" className="chip" aria-pressed={shownTab === 'waitlist'} onClick={() => setTab('waitlist')}>
+            Waitlist<span className="count">{below.length}</span>
+          </button>
+        )}
+        <button type="button" className="chip" aria-pressed={shownTab === 'how'} onClick={() => setTab('how')}>
+          How the ranking works
+        </button>
+      </div>
+
+      {shownTab === 'ranking' && (
+        <section className="card" aria-label="Ranking">
+          {results.length === 0 ? <p className="muted" style={{ margin: 0 }}>{runs.length ? 'This run has no rows.' : 'Nobody to rank yet. Applicants appear here by themselves once their interview is marked Passed.'}</p> : (
+            <>
+              <div className="scroll-box" style={{ maxHeight: 'calc(100vh - var(--stick-top) - 250px)' }}>
+                <ResultTable rows={results} slots={slots} />
+              </div>
+              <p className="small muted" style={{ margin: '8px 0 0' }}>Blue line: the {slots} slots. Applicants below it are waitlisted in rank order.</p>
+            </>
+          )}
+        </section>
+      )}
+
+      {shownTab === 'waitlist' && hasOfficial && cycleId != null && (
+        <>
+          <Waitlist cycleId={cycleId} slots={slots} finalizedAt={finalizedAt} />
+          <section className="card" aria-label="Waitlist in order">
+            {below.length === 0 ? <p className="muted" style={{ margin: 0 }}>Nobody is below the slot line.</p> : (
+              <div className="scroll-box"><ResultTable rows={below} slots={0} /></div>
+            )}
+          </section>
+        </>
+      )}
+
+      {shownTab === 'how' && (
+        <section className="card" aria-label="How the ranking works">
+          <p style={{ marginTop: 0 }}>
+            TOPSIS ranks the applicants who passed the interview on four criteria: income per household member and the living-conditions (SES)
+            index (lower means more in need), household size and GWA, with the weights from the office's AHP comparisons. Ties are broken by lower
+            income per person, then higher GWA, then earlier submission. The whole pool is ranked in one stored run, so the order is reproducible.
+          </p>
+          <div className="grid four" style={{ marginBottom: 12 }}>
+            <div className="stat"><div className="stat-value">{recommended.length} of {results.length}</div><div className="stat-label">Within the slots</div></div>
+            {total > 0 && <div className="stat"><div className="stat-value">PHP {total.toLocaleString()}</div><div className="stat-label">Allowances per release</div></div>}
+            <div className="stat"><div className="stat-value">{tau == null ? '—' : tau.toFixed(2)}</div><div className="stat-label">Kendall τ vs the SAW baseline</div></div>
+          </div>
+          {tau == null && !hasOfficial && results.length > 0 && <p className="small muted">Press <b>Compare with SAW</b> to rank the same pool with the simple weighted sum and see how close the two orders are.</p>}
+          {runs.length > 1 && (
+            <label className="field" style={{ maxWidth: 420 }}>Show run
+              <select value={runId ?? ''} onChange={(e) => { setRunId(Number(e.target.value)); setTab('ranking') }}>
+                {runs.map((r) => <option key={r.id} value={r.id}>#{r.id} · {r.method.toUpperCase()} · {new Date(r.started_at).toLocaleString('en-PH')}{r.is_official ? ' · official' : ''}</option>)}
+              </select>
+            </label>
+          )}
+        </section>
+      )}
     </>
   )
 }
 
-function RowWithLine({ r, showLine }: { r: Result; showLine: boolean }) {
-  const v = r.criterion_values
+function ResultTable({ rows, slots }: { rows: Result[]; slots: number }) {
   return (
-    <>
-      <tr style={{ color: r.recommended ? undefined : 'var(--muted)' }}>
-        <td><strong>{r.rank}</strong></td>
-        <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/ranking' }} style={{ fontWeight: 600 }}>{r.applications?.applicants?.profiles?.full_name ?? 'Applicant'}</Link></td>
-        <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="bar" style={{ width: Math.max(4, Number(r.closeness) * 100) }} />{Number(r.closeness).toFixed(3)}</span></td>
-        <td>{v.C1 != null ? `PHP ${Math.round(v.C1).toLocaleString()}` : '—'}</td>
-        <td>{v.C2 != null ? Number(v.C2).toFixed(2) : '—'}</td>
-        <td>{v.C3 ?? '—'}</td>
-        <td>{v.C4 != null ? `${v.C4}%` : '—'}</td>
-        <td>{r.recommended ? (r.pay_tier_amount ? `PHP ${Number(r.pay_tier_amount).toLocaleString()}` : 'Within the slots') : 'Waitlist'}</td>
-      </tr>
-      {showLine && <tr className="slot-line"><td colSpan={8}><div>Slot line. Applicants below are waitlisted in rank order.</div></td></tr>}
-    </>
+    <table className="table" style={{ minWidth: 860 }}>
+      <thead>
+        <tr><th className="num">Rank</th><th>Applicant</th><th>Closeness</th><th className="num">Income / person</th><th className="num">SES</th><th className="num">Household</th><th className="num">GWA</th><th>Selection</th></tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => {
+          const v = r.criterion_values
+          return (
+            <tr key={r.application_id} className={`${slots > 0 && i === slots ? 'slot-line' : ''}${r.recommended ? '' : ' below-line'}`}>
+              <td className="num"><strong>{r.rank}</strong></td>
+              <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/ranking' }} style={{ fontWeight: 600 }}>{r.applications?.applicants?.profiles?.full_name ?? 'Applicant'}</Link></td>
+              <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="bar" style={{ width: Math.max(4, Number(r.closeness) * 80) }} />{Number(r.closeness).toFixed(3)}</span></td>
+              <td className="num">{v.C1 != null ? `PHP ${Math.round(v.C1).toLocaleString()}` : '—'}</td>
+              <td className="num">{v.C2 != null ? Number(v.C2).toFixed(2) : '—'}</td>
+              <td className="num">{v.C3 ?? '—'}</td>
+              <td className="num">{v.C4 != null ? `${v.C4}%` : '—'}</td>
+              <td>{r.recommended ? <span className="pill ok small">{r.pay_tier_amount ? `PHP ${Number(r.pay_tier_amount).toLocaleString()}` : 'Within slots'}</span> : <span className="pill small">Waitlist</span>}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 

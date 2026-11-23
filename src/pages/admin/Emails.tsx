@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SkeletonLines } from '../../components/Skeleton'
 import { supabase } from '../../lib/supabase'
 
 /** Email topics, in the order an applicant meets them (public.email_topic in the database). */
@@ -61,7 +62,7 @@ export function Emails() {
 
       <section className="card">
         <h2>Send an email for</h2>
-        {!off ? <p className="muted">Loading…</p> : (
+        {!off ? <SkeletonLines lines={6} /> : (
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th style={{ width: 90 }}>Email</th><th>Notice</th><th>When</th></tr></thead>
