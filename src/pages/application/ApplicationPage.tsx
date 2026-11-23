@@ -45,7 +45,7 @@ type StepKey = (typeof STEPS)[number]['key']
 /** client flow v2: step 1 = screening before the exam, step 2 = requirements for exam passers */
 const STAGE_STEPS: Record<1 | 2, StepKey[]> = {
   // step 1 = the office's online application; step 2 = its Scholar / Grantee Information Sheet, plus what the
-  // ranking needs (household, living conditions, home pin) and the step 2 documents
+  // ranking needs (household, living conditions) and the step 2 documents
   1: ['school', 'documents', 'submit'],
   2: ['info', 'education', 'household', 'living', 'documents', 'submit'],
 }

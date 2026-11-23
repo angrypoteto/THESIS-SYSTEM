@@ -676,7 +676,8 @@ label.inline select { width: auto; }
   min-height: 40px; padding: 0 14px; border: 1px solid var(--line-input); border-radius: 8px; background: var(--surface);
   color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; align-items: center; justify-content: center;
 }
-.bell-link { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; color: var(--ink-2); }
+/* phone-only bell: no display here, so .mobile-only keeps it hidden on wider screens (it showed twice on a laptop) */
+.bell-link { position: relative; align-items: center; justify-content: center; width: 40px; height: 40px; color: var(--ink-2); }
 .bell-badge { position: absolute; top: 2px; right: 0; min-width: 18px; padding: 0 5px; }
 @media (max-width: 760px) {
   .mobile-only { display: inline-flex; }
