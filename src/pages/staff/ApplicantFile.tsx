@@ -18,6 +18,7 @@ interface Prediction { qualification_prob: number | null; predicted_income_pc: n
 interface Feedback { staff_need: string; note: string | null; created_at: string; profiles: { full_name: string } | null }
 interface CriterionRow { code: string; name: string; source_field: string; weight: number | null }
 interface ResultRow { rank: number; closeness: number; recommended: boolean; pay_tier_amount: number | null; run_id: number }
+interface InterviewRow { id: number; slot_start: string; location: string | null; status: string; notes: string | null }
 interface Evaluation { id: number; decision: string; remarks: string | null; is_override: boolean; created_at: string; profiles: { full_name: string } | null }
 
 const FEEDBACK_LABEL: Record<string, string> = { in_need: 'In need', not_in_need: 'Not in need', unsure: 'Not sure' }
@@ -40,10 +41,15 @@ export function ApplicantFile() {
   const [dupOpen, setDupOpen] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [fbNote, setFbNote] = useState('')
+  const [interviews, setInterviews] = useState<InterviewRow[]>([])
+  const [tabSel, setTabSel] = useState<'documents' | 'need' | 'values' | 'household' | 'forms' | 'history' | null>(null)
+  const [forfeitOpen, setForfeitOpen] = useState(false)
+  const [forfeitWhy, setForfeitWhy] = useState('')
+  const [forfeitMissing, setForfeitMissing] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
-    const [a, m, g, p, c, w, v, r, e, f] = await Promise.all([
+    const [a, m, g, p, c, w, v, r, e, f, iv] = await Promise.all([
       supabase.from('applications').select(STAFF_APP_SELECT).eq('id', id).single(),
       supabase.from('household_members').select('*').eq('application_id', id).order('id'),
       supabase.from('gate_results').select('gate_code,passed,reason,override_reason').eq('application_id', id),
@@ -54,6 +60,7 @@ export function ApplicantFile() {
       supabase.from('results').select('rank,closeness,recommended,pay_tier_amount,run_id,ranking_runs!inner(is_official)').eq('application_id', id).eq('ranking_runs.is_official', true).limit(1),
       supabase.from('evaluations').select('id,decision,remarks,is_override,created_at,profiles(full_name)').eq('application_id', id).order('created_at', { ascending: false }),
       supabase.from('ml_feedback').select('staff_need,note,created_at,profiles(full_name)').eq('application_id', id).order('created_at', { ascending: false }).limit(1),
+      supabase.from('interviews').select('id,slot_start,location,status,notes').eq('application_id', id).order('slot_start', { ascending: false }),
     ])
     setApp(a.data as unknown as StaffAppRow)
     setMembers((m.data as HouseholdMember[]) ?? [])
@@ -68,6 +75,7 @@ export function ApplicantFile() {
     setResult((r.data?.[0] as unknown as ResultRow) ?? null)
     setEvals((e.data as unknown as Evaluation[]) ?? [])
     setFeedback((f.data?.[0] as unknown as Feedback) ?? null)
+    setInterviews((iv.data as InterviewRow[]) ?? [])
     const who = (a.data as unknown as { applicant_id?: string } | null)?.applicant_id
     if (who) {
       const { data: d } = await supabase.rpc('has_open_duplicate', { p_user: who })
@@ -94,21 +102,103 @@ export function ApplicantFile() {
   const p = app.applicants?.profiles
   const docs = app.documents.filter((d) => d.is_current)
   const docsDone = docs.every((d) => d.verification_status === 'pass' || d.verification_status === 'accepted')
+  const pendingDocs = docs.filter((d) => d.verification_status === 'pending' || d.verification_status === 'review')
   const canDecide = ['ranked', 'approved', 'waitlisted', 'not_selected'].includes(app.status)
+  const ivActive = interviews.find((i) => i.status === 'scheduled') ?? null
+  const ivLast = interviews[0] ?? null
+  const failedGates = gates.filter((g) => !g.passed)
+  const tab = tabSel ?? (pendingDocs.length ? 'documents' : app.stage === 2 && !pred && ['submitted', 'under_review', 'eligible'].includes(app.status) ? 'need' : 'documents')
+  const when = (iso: string) => new Date(iso).toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+  async function ivStatus(status: 'done' | 'no_show') {
+    if (!ivActive) return
+    await act(async () => await supabase.rpc('set_interview_status', { p_interview: ivActive.id, p_status: status, p_notes: null }),
+      status === 'done' ? 'Interview passed: the applicant goes into the ranking.' : 'Marked as no show. Reschedule on Interviews, or forfeit.')
+  }
+  async function forfeit() {
+    if (!forfeitWhy.trim()) return setForfeitMissing(true)
+    await act(async () => await supabase.rpc('forfeit_application', { p_app: app!.id, p_reason: forfeitWhy.trim() }),
+      'Application forfeited. The applicant sees the reason in the portal.')
+    setForfeitOpen(false)
+    setForfeitWhy('')
+  }
+
+  // the one thing that can be done now, by stage
+  const next: { title: string; body?: React.ReactNode; actions?: React.ReactNode } = (() => {
+    if (app.status === 'draft') return { title: 'Not submitted yet', body: 'The applicant is still filling in the application.' }
+    if (app.status === 'withdrawn') return { title: 'Withdrawn', body: 'This application was withdrawn. See History.' }
+    if (pendingDocs.length) return {
+      title: `Check ${pendingDocs.length} document${pendingDocs.length === 1 ? '' : 's'}`,
+      body: 'The eligibility gates run by themselves once the last document is accepted.',
+      actions: <Link className="btn btn-block" to={`/staff/documents/${pendingDocs[0].id}`} state={back.state}>Check {labelDoc(pendingDocs[0].type_code).toLowerCase()}</Link>,
+    }
+    if (app.status === 'under_review') return { title: 'Waiting for the applicant', body: 'A clearer copy of a document was requested. It appears here once uploaded.' }
+    if (app.status === 'ineligible') return {
+      title: 'Not eligible',
+      body: <>{failedGates.map((g) => g.reason ?? GATE_LABEL[g.gate_code]).join('; ') || 'A rule was not met.'} Clear a rule with a reason under Eligibility gates if it should not apply.</>,
+    }
+    if (app.status === 'exam_eligible') return { title: 'Waiting for the exam result', body: <>Cleared for the qualifying exam. Scores are entered on <Link to="/staff/exam">Qualifying exam</Link>.</> }
+    if (app.status === 'exam_failed') return { title: 'Did not proceed to step 2', body: app.exam_result === 'absent' ? 'Absent from the qualifying exam.' : 'Below the step 2 line after the exam.' }
+    if (app.stage === 2 && ['submitted', 'eligible'].includes(app.status)) {
+      if (ivActive) return {
+        title: 'Record the interview result',
+        body: <>{when(ivActive.slot_start)}{ivActive.location ? ` · ${ivActive.location}` : ''}</>,
+        actions: forfeitOpen ? (
+          <div style={{ display: 'grid', gap: 6 }}>
+            <textarea aria-label="Why is the application forfeited?" aria-invalid={forfeitMissing && !forfeitWhy.trim()} rows={3}
+              placeholder="Why? (required) e.g. both parents work; income higher than declared" value={forfeitWhy} onChange={(e) => setForfeitWhy(e.target.value)} />
+            {forfeitMissing && !forfeitWhy.trim() && <span className="field-error" role="alert">Write why the application is forfeited.</span>}
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className="btn btn-danger-outline" disabled={busy} onClick={forfeit}>Forfeit application</button>
+              <button className="btn-danger-link" onClick={() => { setForfeitOpen(false); setForfeitMissing(false) }}>Back</button>
+            </span>
+          </div>
+        ) : (
+          <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-ok" style={{ flex: 1 }} disabled={busy} onClick={() => ivStatus('done')}>Passed</button>
+            <button className="btn btn-plain" disabled={busy} onClick={() => ivStatus('no_show')}>No show</button>
+            <button className="btn-danger-link" onClick={() => setForfeitOpen(true)}>Forfeit…</button>
+          </span>
+        ),
+      }
+      if (ivLast?.status === 'done') return { title: 'Interview passed', body: 'In the ranking. The final selection is automatic once every interview is settled and step 2 has closed.' }
+      if (app.status === 'eligible') return {
+        title: ivLast?.status === 'no_show' ? 'No show: reschedule the interview' : 'Schedule the interview',
+        body: 'Only applicants who pass the interview are ranked.',
+        actions: <Link className="btn btn-block" to="/staff/interviews">Go to Interviews</Link>,
+      }
+      return { title: 'Step 2 submitted', body: 'Check the documents; the gates run by themselves after the last one.' }
+    }
+    if (canDecide) return {
+      title: app.status === 'approved' ? 'Selected (approved)' : app.status === 'waitlisted' ? 'On the waitlist' : app.status === 'ranked' ? 'Ranked: final selection in progress' : 'Not selected',
+      body: 'Decided by the automatic selection. To change this one result, record a decision with a reason below; it is logged as an override.',
+    }
+    return { title: app.status.replaceAll('_', ' ') }
+  })()
+
+  const TABS: [typeof tab, string, number | null][] = [
+    ['documents', 'Documents', docs.length], ['need', 'Need estimate', null], ['values', 'Ranking values', null],
+    ['household', 'Household', members.length], ['forms', 'Office forms', null], ['history', 'History', evals.length + interviews.length],
+  ]
 
   return (
     <>
       <div className="page-head sticky-head">
-        <div>
+        <div style={{ minWidth: 0 }}>
           <Link to={back.to} className="back">← {back.label}</Link>
-          <h1>{p?.full_name}</h1>
-          <p>
-            {p?.student_number} · {app.applicants?.course ?? '—'}, incoming year {app.applicants?.year_level ?? '—'} · {app.applicants?.schools?.name ?? '—'} ·{' '}
-            {app.applicants?.barangays?.name ?? '—'} · step {app.stage}{app.applicant_no ? ` · ${app.applicant_no}` : ''}{app.exam_score != null ? ` · exam ${app.exam_score}%, combined ${Number(app.combined_score).toFixed(2)}%${app.academic_rank ? ` (academic rank ${app.academic_rank})` : ''}` : app.exam_result ? ` · exam ${app.exam_result}` : ''}
-            {app.household_size ? ` · household of ${app.household_size}` : ''}
-          </p>
+          <h1>{p?.full_name} <span className="pill info" style={{ verticalAlign: 'middle', fontSize: 14 }}>{app.status.replaceAll('_', ' ')}</span></h1>
+          <div className="fact-chips">
+            {app.applicant_no && <span className="pill small">{app.applicant_no}</span>}
+            {p?.student_number && <span className="pill small">{p.student_number}</span>}
+            <span className="pill small">{app.applicants?.course ?? '—'}</span>
+            <span className="pill small">Incoming year {app.applicants?.year_level ?? '—'}</span>
+            <span className="pill small">{app.applicants?.barangays?.name ?? '—'}</span>
+            <span className="pill small">Step {app.stage}</span>
+            {app.exam_score != null && <span className="pill small">Exam {app.exam_score}% · combined {Number(app.combined_score).toFixed(2)}%</span>}
+            {app.household_size ? <span className="pill small">Household of {app.household_size}</span> : null}
+            {result && <span className="pill small">Rank #{result.rank}</span>}
+          </div>
         </div>
-        <span className="pill info">{app.status.replaceAll('_', ' ')}</span>
       </div>
       {app.flags?.length > 0 && (
         <p className="banner warn" role="note">Needs your judgment: {app.flags.map(flagText).join('; ')}</p>
@@ -123,129 +213,174 @@ export function ApplicantFile() {
 
       <div className="split">
         <div className="main">
-          <section className="card" aria-labelledby="docs">
-            <h2 id="docs">Documents</h2>
-            <table className="table">
-              <tbody>
-                {docs.map((d) => (
-                  <tr key={d.id}>
-                    <td>{labelDoc(d.type_code)}</td>
-                    <td><span className={`status-dot ${d.verification_status}`} /> {d.verification_status}</td>
-                    <td className="num"><Link className={d.verification_status === 'pending' || d.verification_status === 'review' ? 'btn' : 'btn btn-plain'} to={`/staff/documents/${d.id}`} state={back.state}>{d.verification_status === 'pending' || d.verification_status === 'review' ? 'Check' : 'View'}</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          <section className="card" aria-labelledby="need">
-            <h2 id="need">Estimated need</h2>
-            {pred?.qualification_prob != null ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span style={{ fontSize: 38, fontWeight: 800 }}>{pred.qualification_prob.toFixed(2)}</span><span className="muted">probability of being in need</span></div>
-                <div className="gauge" aria-hidden="true"><i style={{ left: `${pred.qualification_prob * 100}%` }} /></div>
-                <div className="small muted" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span>below 0.10: not recommended</span><span>0.10–0.70: staff review</span><span>0.70+: ranking pool</span></div>
-                <h3 className="mt">Main reasons</h3>
-                {pred.shap_reasons.map((r) => (
-                  <div className="reason-row" key={r.label}>
-                    <span>{r.label}</span>
-                    <span className="eff" style={{ color: r.effect > 0 ? 'var(--ok-ink)' : 'var(--warn-ink)' }}>
-                      <span className="bar" style={{ width: Math.min(100, Math.abs(r.effect) * 500), background: r.effect > 0 ? 'var(--ok)' : 'var(--warn)' }} />
-                      {r.direction}
-                    </span>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <p className="muted" style={{ margin: 0 }}>
-                {app.stage === 2 && app.status !== 'draft'
-                  ? 'No model score yet. Ask the ML service for an estimate; it reads only the household, income and living-condition answers.'
-                  : 'The need estimate runs after step 2 is submitted (household and income are collected in step 2).'}
-              </p>
-            )}
-            {app.stage === 2 && app.status !== 'draft' && (
-              <button aria-busy={busy} className={`btn ${pred ? 'btn-plain' : ''}`} style={{ marginTop: 12 }} disabled={busy}
-                onClick={() => act(async () => {
-                  const { error } = await supabase.functions.invoke('ml-score', { body: { application_id: app.id } })
-                  if (!error) return { error: null }
-                  // show the function's own message (e.g. "the ML service may be waking up")
-                  const ctx = (error as { context?: Response }).context
-                  const body = ctx ? await ctx.json().catch(() => null) : null
-                  return { error: { message: body?.error ?? error.message } }
-                }, 'Need estimate saved.')}>
-                {busy ? 'Estimating…' : pred ? 'Estimate again' : 'Get need estimate'}
+          <div className="chips" role="group" aria-label="Sections" style={{ marginBottom: 12 }}>
+            {TABS.map(([k, label, n]) => (
+              <button key={k} type="button" className="chip" aria-pressed={tab === k} onClick={() => setTabSel(k)}>
+                {label}{n != null && n > 0 && <span className="count">{n}</span>}
               </button>
-            )}
-            {busy && (
-              <p className="small muted busy-note" role="status">Working. If the estimating service was asleep, this can take up to a minute.</p>
-            )}
-            {pred && app.stage === 2 && (
-              <div className="mt">
-                <h3 style={{ marginBottom: 4 }}>Do you agree? Your judgement</h3>
-                <p className="small muted" style={{ marginTop: 0 }}>
-                  After reading the documents, is this household in need? Your answer is saved as a label to check and later
-                  retrain the model (Administration &gt; Models). It does not change the ranking.
-                </p>
-                {feedback && (
-                  <p className="small" style={{ marginTop: 0 }}>
-                    Last answer: <strong>{FEEDBACK_LABEL[feedback.staff_need] ?? feedback.staff_need}</strong>
-                    {feedback.profiles?.full_name ? ` by ${feedback.profiles.full_name}` : ''}, {new Date(feedback.created_at).toLocaleDateString()}
-                    {feedback.note ? ` · “${feedback.note}”` : ''}
-                  </p>
-                )}
-                <label className="field" style={{ marginTop: 0 }}>
-                  <span className="small">Note (optional)</span>
-                  <input value={fbNote} onChange={(e) => setFbNote(e.target.value)} maxLength={300} placeholder="e.g. both parents are vendors" />
-                </label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                  {(['in_need', 'not_in_need', 'unsure'] as const).map((k) => (
-                    <button key={k} className={`btn ${feedback?.staff_need === k ? '' : 'btn-plain'}`} disabled={busy}
-                      onClick={() => act(async () => {
-                        const { error } = await supabase.rpc('record_need_feedback', { p_app: app.id, p_need: k, p_note: fbNote || null })
-                        if (!error) setFbNote('')
-                        return { error }
-                      }, 'Your answer is saved.')}>
-                      {FEEDBACK_LABEL[k]}
-                    </button>
+            ))}
+          </div>
+
+          {tab === 'documents' && (
+            <section className="card" aria-label="Documents">
+              <table className="table">
+                <thead><tr><th>Document</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  {docs.map((d) => (
+                    <tr key={d.id}>
+                      <td>{labelDoc(d.type_code)}</td>
+                      <td><span className={`status-dot ${d.verification_status}`} /> {d.verification_status}</td>
+                      <td className="num"><Link className={d.verification_status === 'pending' || d.verification_status === 'review' ? 'btn' : 'btn btn-plain'} to={`/staff/documents/${d.id}`} state={back.state}>{d.verification_status === 'pending' || d.verification_status === 'review' ? 'Check' : 'View'}</Link></td>
+                    </tr>
                   ))}
+                  {docs.length === 0 && <tr><td colSpan={3} className="muted">No documents uploaded.</td></tr>}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {tab === 'need' && (
+            <section className="card" aria-label="Estimated need">
+              {pred?.qualification_prob != null ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span style={{ fontSize: 38, fontWeight: 800 }}>{pred.qualification_prob.toFixed(2)}</span><span className="muted">probability of being in need</span></div>
+                  <div className="gauge" aria-hidden="true"><i style={{ left: `${pred.qualification_prob * 100}%` }} /></div>
+                  <div className="small muted" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span>below 0.10: not recommended</span><span>0.10–0.70: staff review</span><span>0.70+: ranking pool</span></div>
+                  <h3 className="mt">Main reasons</h3>
+                  {pred.shap_reasons.map((r) => (
+                    <div className="reason-row" key={r.label}>
+                      <span>{r.label}</span>
+                      <span className="eff" style={{ color: r.effect > 0 ? 'var(--ok-ink)' : 'var(--warn-ink)' }}>
+                        <span className="bar" style={{ width: Math.min(100, Math.abs(r.effect) * 500), background: r.effect > 0 ? 'var(--ok)' : 'var(--warn)' }} />
+                        {r.direction}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <p className="muted" style={{ margin: 0 }}>
+                  {app.stage === 2 && app.status !== 'draft'
+                    ? 'No model score yet. Ask the ML service for an estimate; it reads only the household, income and living-condition answers.'
+                    : 'The need estimate runs after step 2 is submitted (household and income are collected in step 2).'}
+                </p>
+              )}
+              {app.stage === 2 && app.status !== 'draft' && (
+                <button aria-busy={busy} className={`btn ${pred ? 'btn-plain' : ''}`} style={{ marginTop: 12 }} disabled={busy}
+                  onClick={() => act(async () => {
+                    const { error } = await supabase.functions.invoke('ml-score', { body: { application_id: app.id } })
+                    if (!error) return { error: null }
+                    const ctx = (error as { context?: Response }).context
+                    const body = ctx ? await ctx.json().catch(() => null) : null
+                    return { error: { message: body?.error ?? error.message } }
+                  }, 'Need estimate saved.')}>
+                  {busy ? 'Estimating…' : pred ? 'Estimate again' : 'Get need estimate'}
+                </button>
+              )}
+              {busy && <p className="small muted busy-note" role="status">Working. If the estimating service was asleep, this can take up to a minute.</p>}
+              {pred && app.stage === 2 && (
+                <div className="mt">
+                  <h3 style={{ marginBottom: 4 }}>Do you agree? Your judgement</h3>
+                  <p className="small muted" style={{ marginTop: 0 }}>
+                    After reading the documents, is this household in need? Your answer is saved as a label to check and later
+                    retrain the model (Administration &gt; Models). It does not change the ranking.
+                  </p>
+                  {feedback && (
+                    <p className="small" style={{ marginTop: 0 }}>
+                      Last answer: <strong>{FEEDBACK_LABEL[feedback.staff_need] ?? feedback.staff_need}</strong>
+                      {feedback.profiles?.full_name ? ` by ${feedback.profiles.full_name}` : ''}, {new Date(feedback.created_at).toLocaleDateString()}
+                      {feedback.note ? ` · “${feedback.note}”` : ''}
+                    </p>
+                  )}
+                  <label className="field" style={{ marginTop: 0 }}>
+                    <span className="small">Note (optional)</span>
+                    <input value={fbNote} onChange={(e) => setFbNote(e.target.value)} maxLength={300} placeholder="e.g. both parents are vendors" />
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    {(['in_need', 'not_in_need', 'unsure'] as const).map((k) => (
+                      <button key={k} className={`btn ${feedback?.staff_need === k ? '' : 'btn-plain'}`} disabled={busy}
+                        onClick={() => act(async () => {
+                          const { error } = await supabase.rpc('record_need_feedback', { p_app: app.id, p_need: k, p_note: fbNote || null })
+                          if (!error) setFbNote('')
+                          return { error }
+                        }, 'Your answer is saved.')}>
+                        {FEEDBACK_LABEL[k]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+          )}
 
-          <section className="card" aria-labelledby="crit">
-            <h2 id="crit">Values used for ranking</h2>
-            <table className="table">
-              <thead><tr><th>Criterion</th><th>Value</th><th className="num">Weight</th></tr></thead>
-              <tbody>
-                {criteria.map((c) => (
-                  <tr key={c.code}><td>{c.code} {c.name}</td><td><strong>{fmtValue(c.source_field, values[c.source_field])}</strong></td><td className="num">{c.weight != null ? Number(c.weight).toFixed(3) : '—'}</td></tr>
+          {tab === 'values' && (
+            <section className="card" aria-label="Values used for ranking">
+              <table className="table">
+                <thead><tr><th>Criterion</th><th>Value</th><th className="num">Weight</th></tr></thead>
+                <tbody>
+                  {criteria.map((c) => (
+                    <tr key={c.code}><td>{c.code} {c.name}</td><td><strong>{fmtValue(c.source_field, values[c.source_field])}</strong></td><td className="num">{c.weight != null ? Number(c.weight).toFixed(3) : '—'}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {tab === 'household' && (
+            <section className="card" aria-label="Household roster">
+              <table className="table">
+                <thead><tr><th>Name</th><th>Relationship</th><th>Age</th><th>Studying</th><th>Working</th><th>Ill / PWD</th><th className="num">Monthly income</th></tr></thead>
+                <tbody>
+                  {members.map((m) => (
+                    <tr key={m.id}><td>{m.full_name}</td><td>{m.relationship}</td><td>{m.age}</td><td>{m.is_studying ? 'Yes' : 'No'}</td><td>{m.is_working ? 'Yes' : 'No'}</td><td>{m.has_illness ? 'Yes' : 'No'}</td><td className="num">PHP {Number(m.monthly_income).toLocaleString()}</td></tr>
+                  ))}
+                  {members.length === 0 && <tr><td colSpan={7} className="muted">The household is entered in step 2.</td></tr>}
+                </tbody>
+              </table>
+              <p className="small muted" style={{ marginBottom: 0 }}>Declared household income: PHP {Number(app.declared_monthly_income ?? 0).toLocaleString()} per month.</p>
+            </section>
+          )}
+
+          {tab === 'forms' && <OfficeFormsCard appId={app.id} canSetCategory={!busy} />}
+
+          {tab === 'history' && (
+            <>
+              <section className="card" aria-label="History">
+                {interviews.length === 0 && evals.length === 0 && <p className="muted" style={{ margin: 0 }}>No interviews or decisions yet.</p>}
+                {interviews.map((i) => (
+                  <p key={`i${i.id}`} className="small" style={{ margin: '0 0 8px' }}>
+                    <strong>Interview · {i.status === 'done' ? 'passed' : i.status.replace('_', ' ')}</strong> · {when(i.slot_start)}{i.location ? ` · ${i.location}` : ''}
+                    {i.notes && <><br /><span className="muted">{i.notes}</span></>}
+                  </p>
                 ))}
-              </tbody>
-            </table>
-          </section>
-
-          <section className="card" aria-labelledby="hh">
-            <h2 id="hh">Household roster</h2>
-            <table className="table">
-              <thead><tr><th>Name</th><th>Relationship</th><th>Age</th><th>Studying</th><th>Working</th><th>Ill / PWD</th><th className="num">Monthly income</th></tr></thead>
-              <tbody>
-                {members.map((m) => (
-                  <tr key={m.id}><td>{m.full_name}</td><td>{m.relationship}</td><td>{m.age}</td><td>{m.is_studying ? 'Yes' : 'No'}</td><td>{m.is_working ? 'Yes' : 'No'}</td><td>{m.has_illness ? 'Yes' : 'No'}</td><td className="num">PHP {Number(m.monthly_income).toLocaleString()}</td></tr>
+                {evals.map((e) => (
+                  <p key={e.id} className="small" style={{ margin: '0 0 8px' }}>
+                    <strong>{e.decision.replace('_', ' ')}</strong>{e.is_override && ' (override)'} · {e.profiles?.full_name ?? 'automatic selection'} · {new Date(e.created_at).toLocaleString('en-PH')}<br />
+                    <span className="muted">{e.remarks}</span>
+                  </p>
                 ))}
-              </tbody>
-            </table>
-            <p className="small muted" style={{ marginBottom: 0 }}>Declared household income: PHP {Number(app.declared_monthly_income ?? 0).toLocaleString()} per month.</p>
-          </section>
-
-          <OfficeFormsCard appId={app.id} canSetCategory={!busy} />
+              </section>
+              {!['draft', 'withdrawn'].includes(app.status) && (
+                <Withdraw busy={busy} approved={app.status === 'approved'}
+                  onSave={(why) => act(async () => await supabase.rpc('withdraw_application', { p_app: app.id, p_reason: why }),
+                    'Application withdrawn.' + (app.status === 'approved' ? ' The next on the waitlist is approved automatically.' : ''))} />
+              )}
+            </>
+          )}
         </div>
 
         <aside className="side">
+          <section className="card next-step" aria-labelledby="next-h">
+            <span className="eyebrow">Next step</span>
+            <h2 id="next-h">{next.title}</h2>
+            {next.body && <p className="small muted" style={{ margin: '0 0 10px' }}>{next.body}</p>}
+            {next.actions}
+          </section>
+
           <section className="card" aria-labelledby="gates">
-            <h2 id="gates">Eligibility gates</h2>
+            <h2 id="gates" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>Eligibility gates
+              {gates.length > 0 && (failedGates.length ? <span className="pill warn small">{failedGates.length} not met</span> : <span className="pill ok small">all passed</span>)}</h2>
             {gates.length === 0 ? (
-              <p className="muted">{docsDone ? 'Not run yet.' : 'Not run yet. They run by themselves once every document is accepted.'}</p>
+              <p className="muted small" style={{ margin: 0 }}>{docsDone ? 'Not run yet.' : 'They run by themselves once every document is accepted.'}</p>
             ) : (
               <ul className="checklist">
                 {STEP_GATES[app.stage ?? 1].map((code) => {
@@ -261,41 +396,30 @@ export function ApplicantFile() {
                 })}
               </ul>
             )}
-            {/* gates run by themselves when the last document is accepted; the button is for re-checking after a fix */}
-            {docsDone && ['submitted', 'under_review', 'eligible', 'ineligible', 'exam_eligible'].includes(app.status) && (
-              <button className={`btn btn-block ${gates.length ? 'btn-outline' : ''}`} aria-busy={busy} disabled={busy}
+            {docsDone && ['submitted', 'under_review', 'eligible', 'ineligible', 'exam_eligible'].includes(app.status) && gates.length > 0 && (
+              <button className="btn btn-plain btn-block" style={{ marginTop: 8 }} aria-busy={busy} disabled={busy}
+                onClick={() => act(async () => await supabase.rpc('evaluate_gates', { p_app: app.id }), 'Gates checked again.')}>
+                Check the gates again
+              </button>
+            )}
+            {docsDone && gates.length === 0 && ['submitted', 'under_review'].includes(app.status) && (
+              <button className="btn btn-block" style={{ marginTop: 8 }} aria-busy={busy} disabled={busy}
                 onClick={() => act(async () => await supabase.rpc('evaluate_gates', { p_app: app.id }), 'Gates evaluated.')}>
-                {gates.length ? 'Run the gates again' : app.stage === 2 ? 'Run eligibility gates' : 'Run step 1 screening gates'}
+                Run the gates
               </button>
             )}
           </section>
 
           {result && (
             <section className="card" aria-labelledby="rank">
-              <h2 id="rank">Official ranking</h2>
+              <h2 id="rank">Ranking</h2>
               <p style={{ margin: 0 }}>Rank <strong>#{result.rank}</strong> · closeness {Number(result.closeness).toFixed(3)} · {result.recommended ? 'within the slots' : 'outside the slots (waitlist)'}{result.recommended && result.pay_tier_amount ? ` · allowance PHP ${Number(result.pay_tier_amount).toLocaleString()}` : ''}</p>
             </section>
           )}
 
-          <Decision disabled={!canDecide || busy} recommended={result?.recommended ?? null}
-            onSave={(decision, reason) => act(async () => await supabase.rpc('record_decision', { p_app: app.id, p_decision: decision, p_reason: reason }), 'Decision saved; the applicant was notified.')} />
-
-          {evals.length > 0 && (
-            <section className="card" aria-labelledby="hist">
-              <h2 id="hist">Decision history</h2>
-              {evals.map((e) => (
-                <p key={e.id} className="small" style={{ margin: '0 0 8px' }}>
-                  <strong>{e.decision.replace('_', ' ')}</strong>{e.is_override && ' (override)'} · {e.profiles?.full_name} · {new Date(e.created_at).toLocaleString('en-PH')}<br />
-                  <span className="muted">{e.remarks}</span>
-                </p>
-              ))}
-            </section>
-          )}
-
-          {!['draft', 'withdrawn'].includes(app.status) && (
-            <Withdraw busy={busy} approved={app.status === 'approved'}
-              onSave={(why) => act(async () => await supabase.rpc('withdraw_application', { p_app: app.id, p_reason: why }),
-                'Application withdrawn; the applicant was emailed.' + (app.status === 'approved' ? ' A slot is now open: promote the next waitlisted applicant from the Ranking page.' : ''))} />
+          {canDecide && (
+            <Decision disabled={busy} recommended={result?.recommended ?? null}
+              onSave={(decision, reason) => act(async () => await supabase.rpc('record_decision', { p_app: app.id, p_decision: decision, p_reason: reason }), 'Decision saved; the applicant was notified.')} />
           )}
         </aside>
       </div>

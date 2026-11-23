@@ -5,7 +5,7 @@
    flag blue for actions, deep navy for staff navigation, seal gold for decoration only.
    UX rules: every target >= 44px (Fitts); primary action largest; destructive actions small and apart.
    ========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   --blue: #0038A8;        /* Philippine-flag blue (seal) */
@@ -22,7 +22,7 @@
   --line: #DDE3EA;
   --line-soft: #EEF1F5;
   --line-input: #B8C3D0;
-  --bg: #F4F6F9;
+  --bg: #EEF3FC;          /* sky (redesign, Nov 24) */
   --surface: #FFFFFF;
   --surface-2: #F7F9FB;
   --warn: #B45309;        /* "needs a person" */
@@ -34,7 +34,9 @@
   --ok-bg: #E7F4EC;
   --ok-line: #A8D5B8;
   --error: #B42318;
-  --radius: 12px;
+  --radius: 14px;
+  --gold-soft: #F6ECDC;   /* milestone backgrounds */
+  --display: 'Bricolage Grotesque', 'Public Sans', system-ui, sans-serif;   /* headlines only */
   --target: 44px;
   font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
@@ -47,9 +49,10 @@
 body { margin: 0; background: var(--bg); }
 a { color: var(--blue); }
 a:hover { color: var(--blue-dark); }
-h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; font-weight: 800; }
-h2 { font-size: 18px; margin: 0 0 10px; }
-h3 { font-size: 15px; margin: 0 0 8px; }
+h1, h2, h3 { font-family: var(--display); color: var(--navy); letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; font-weight: 800; }
+h2 { font-size: 19px; margin: 0 0 10px; font-weight: 700; }
+h3 { font-size: 16px; margin: 0 0 8px; font-weight: 700; }
 code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.9em; }
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
@@ -119,7 +122,25 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 .side-user .side-signout { width: var(--target); padding: 0; display: grid; place-items: center; flex: none; }
 .side-user .side-signout svg { width: 20px; height: 20px; }
 .side-user .side-signout:hover { background: rgba(255,255,255,.08); }
-.staff-main { flex: 999 1 560px; min-width: 0; padding: 24px 28px 56px; display: flex; flex-direction: column; gap: 18px; }
+.staff-main { flex: 999 1 560px; min-width: 0; padding: 24px 28px 56px; display: flex; flex-direction: column; gap: 18px; --stick-top: 0px; }
+.staff-main:has(> .cycle-progress) { --stick-top: 64px; padding-top: 12px; }
+
+/* ---------- cycle progress: frosted glass bar that stays at the top while scrolling (owner, Nov 21) ---------- */
+.cycle-progress {
+  position: sticky; top: 10px; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap;
+  padding: 8px 10px 8px 12px; border-radius: 14px; font-size: 14px; color: var(--ink-2);
+  background: rgba(255, 255, 255, 0.62); border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 8px 28px rgba(11, 31, 77, 0.10), 0 1px 2px rgba(11, 31, 77, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(16px) saturate(170%); backdrop-filter: blur(16px) saturate(170%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cycle-progress { background: rgba(255, 255, 255, 0.96); } }
+.cycle-progress ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.cycle-progress li { display: flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 999px; color: var(--muted); white-space: nowrap; }
+.cycle-progress li + li::before { content: "›"; color: var(--line-input); font-size: 17px; margin: 0 6px 0 -8px; }
+.cycle-progress li.done { color: var(--ok-ink); }
+.cycle-progress li.now { background: var(--blue); color: #fff; font-weight: 700; box-shadow: 0 2px 8px rgba(0, 56, 168, 0.28); }
+.cycle-progress .cp-next { padding-right: 4px; }
+.cycle-progress .cp-next a { color: var(--blue); }
 /* Sticky sidebar whenever it sits beside the content (248 + 560 px fit side by side from ~820 px).
    It stays full height and scrolls on its own if the window is shorter than the menu.
    On phones it stacks above the content and scrolls away normally, so it never covers the page. */
@@ -135,8 +156,8 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 /* ---------- buttons (Fitts: >= 44px; primary largest) ---------- */
 .button, .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--target);
-  padding: 0 18px; border: 0; border-radius: 8px; background: var(--blue); color: #fff; font: inherit;
-  font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none;
+  padding: 0 18px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font: inherit;
+  font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none;
   /* long labels wrap inside the button instead of pushing the page sideways */
   max-width: 100%; white-space: normal; text-align: center; line-height: 1.25; padding-block: 8px;
 }
@@ -182,7 +203,7 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 /* a short card beside a long one keeps its own height and stays in view, instead of stretching into a tall empty box */
 .grid.grid-top { align-items: start; }
-@media (min-width: 1240px) { .staff-main .grid.grid-top > .card:first-child { position: sticky; top: 16px; } }
+@media (min-width: 1240px) { .staff-main .grid.grid-top > .card:first-child { position: sticky; top: calc(var(--stick-top) + 16px); } }
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
@@ -192,18 +213,18 @@ code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:
 /* When the two columns sit side by side, the shorter one stays in view while the longer one scrolls,
    so there is no blank half-page beside a long column (for example the document beside its checks). */
 @media (min-width: 1240px) {
-  .staff-main .split > .main, .staff-main .split > .side { position: sticky; top: 16px; }
+  .staff-main .split > .main, .staff-main .split > .side { position: sticky; top: calc(var(--stick-top) + 16px); }
   .staff-main .split > .main.card .doc-image { max-height: calc(100vh - 150px); overflow: auto; }
   /* pages with a sticky header: the columns stick below it */
-  .staff-main:has(.sticky-head) .split > .main, .staff-main:has(.sticky-head) .split > .side { top: 136px; }
+  .staff-main:has(.sticky-head) .split > .main, .staff-main:has(.sticky-head) .split > .side { top: calc(var(--stick-top) + 136px); }
   .staff-main:has(.sticky-head) .split > .main.card .doc-image { max-height: calc(100vh - 270px); }
 }
 /* Applicant file and document check: the back link, name and status stay at the top while scrolling.
    The negative margins let the page-coloured background cover the page padding (no border, no shadow). */
 @media (min-width: 820px) {
   .staff-main .sticky-head {
-    position: sticky; top: 0; z-index: 5; background: var(--bg);
-    margin: -24px -28px 0; padding: 16px 28px 12px; min-height: 0;
+    position: sticky; top: var(--stick-top); z-index: 5; background: var(--bg);
+    margin: -12px -28px 0; padding: 12px 28px 12px; min-height: 0;
   }
   .staff-main .sticky-head h1 { margin: 0; }
   .staff-main .sticky-head p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70vw; }
@@ -751,3 +772,79 @@ label.inline select { width: auto; }
 .faq-admin-head { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
 .faq-admin-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .btn.small { min-height: 34px; padding: 4px 10px; font-size: 13px; }
+
+/* ---------- layout plan (Nov 21): status line, lists that scroll inside their card, action bar, side panel ---------- */
+.status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin: -6px 0 0; }
+.status-line .sep { color: var(--line-input); }
+.status-line b { color: var(--ink-2); }
+.chip .count { font-variant-numeric: tabular-nums; font-weight: 700; margin-left: 6px; }
+/* a list that scrolls inside its card: the header row stays, the page around it stays in view */
+.scroll-box { overflow: auto; border: 1px solid var(--line); border-radius: 10px; max-height: calc(100vh - var(--stick-top) - 300px); min-height: 240px; }
+.scroll-box .table th { position: sticky; top: 0; z-index: 1; }
+.scroll-box .table td { padding-top: 8px; padding-bottom: 8px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.card-head h2 { margin: 0; }
+.side-by-side { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.side-by-side > .card { margin-bottom: 0; display: flex; flex-direction: column; gap: 10px; }
+@media (max-width: 1100px) { .side-by-side { grid-template-columns: minmax(0, 1fr); } }
+.table tr.slot-line td { border-top: 2px solid var(--blue); }
+.table tr.below-line td { color: var(--muted); }
+.save-bar { position: sticky; bottom: 12px; z-index: 6; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--navy); color: #fff; box-shadow: 0 8px 24px rgba(11, 31, 77, 0.25); }
+.save-bar .btn { background: #fff; color: var(--navy); border-color: #fff; }
+.save-bar .btn:hover { background: var(--blue-tint); color: var(--navy); }
+/* action bar shown while rows are ticked */
+.action-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom, 0px)); z-index: 40;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 12px 10px 18px; border-radius: 14px;
+  background: var(--navy); color: #fff; box-shadow: 0 10px 30px rgba(11, 31, 77, 0.32); max-width: calc(100vw - 32px); }
+.action-bar .btn { background: #fff; color: var(--navy); border-color: #fff; }
+.action-bar .btn:hover { background: var(--blue-tint); color: var(--navy); }
+.action-bar .link-light { background: none; border: 0; color: #C9D6E8; text-decoration: underline; font: inherit; cursor: pointer; min-height: var(--target); }
+/* side panel */
+.drawer-shade { position: fixed; inset: 0; z-index: 1200; background: rgba(11, 31, 77, 0.35); }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 1201; width: min(440px, 100vw); background: var(--surface); overflow-y: auto;
+  box-shadow: -10px 0 30px rgba(11, 31, 77, 0.2); padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.drawer-head h2 { margin: 0; }
+.drawer-close { min-width: var(--target); min-height: var(--target); border: 0; background: none; font-size: 24px; color: var(--muted); cursor: pointer; border-radius: 8px; }
+.drawer-close:hover { background: var(--surface-2); color: var(--ink); }
+/* "next step" card on the applicant file */
+.card.next-step { border: 2px solid var(--blue); }
+.next-step .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--blue); }
+.next-step h2 { margin: 4px 0 2px; }
+.fact-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* headings on dark backgrounds keep white (headings are navy by default since the redesign) */
+.auth-panel h1, .auth-panel h2, .auth-panel h3, .cta-band h1, .sidebar h2 { color: #fff; }
+
+/* ---------- journey path: the five stops of the program (redesign signature, Nov 24) ---------- */
+.journey { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.journey li { display: grid; justify-items: center; text-align: center; gap: 6px; position: relative; padding: 0 4px; }
+.journey li::before { content: ""; position: absolute; top: 18px; left: -50%; width: 100%; height: 3px; background: #CBD6E6; }
+.journey li:first-child::before { display: none; }
+.journey li.done::before, .journey li.now::before { background: var(--blue); }
+.journey .dot { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; position: relative;
+  background: var(--surface); border: 3px solid #CBD6E6; color: var(--muted); }
+.journey li.done .dot { background: var(--blue); border-color: var(--blue); color: #fff; }
+.journey li.now .dot { border-color: var(--blue); color: var(--blue); box-shadow: 0 0 0 6px rgba(0, 56, 168, 0.14); }
+.journey li.last .dot { border-color: var(--gold); }
+.journey li.done.last .dot { background: var(--gold); border-color: var(--gold); }
+.journey b { font-size: 14px; color: var(--ink); }
+.journey small { font-size: 12.5px; color: var(--muted); }
+.journey li.now b { color: var(--blue); }
+.journey.compact .dot { width: 30px; height: 30px; font-size: 12px; }
+.journey.compact li::before { top: 14px; }
+.journey.compact b { font-size: 12px; }
+@media (max-width: 520px) { .journey b { font-size: 12px; } .journey small { display: none; } .journey .dot { width: 30px; height: 30px; } .journey li::before { top: 14px; } }
+
+/* ---------- seal stamp: the milestone moment (submitted, cleared, result) ---------- */
+.stamp { width: 140px; height: 140px; border-radius: 50%; margin: 4px auto 0; display: grid; place-items: center; position: relative;
+  border: 3px solid var(--gold); background: var(--surface); box-shadow: 0 0 0 8px var(--gold-soft); animation: stamp-in 0.9s cubic-bezier(.2, .9, .3, 1.3) both; }
+.stamp img { width: 96px; height: 96px; object-fit: contain; }
+.stamp .tick { position: absolute; right: -2px; bottom: 6px; width: 44px; height: 44px; border-radius: 50%; background: var(--ok); color: #fff;
+  display: grid; place-items: center; font-weight: 800; font-size: 21px; border: 4px solid var(--surface); }
+@keyframes stamp-in { from { transform: scale(1.35) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .stamp { animation: none; } }
+.moment { display: grid; justify-items: center; text-align: center; gap: 14px; padding: 28px 20px; }
+.moment h1 { font-size: clamp(30px, 5vw, 46px); margin: 0; }
+.moment p { margin: 0; color: var(--muted); max-width: 46ch; }

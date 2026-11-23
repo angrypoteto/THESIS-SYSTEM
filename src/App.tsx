@@ -3,7 +3,7 @@ import { Models } from './pages/admin/Models'
 import { Faqs } from './pages/admin/Faqs'
 import { Emails } from './pages/admin/Emails'
 import { CheckEmail, Welcome } from './pages/auth/AfterSignUp'
-import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import { AuthLayout } from './components/AuthLayout'
 import { Layout } from './components/Layout'
@@ -19,6 +19,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Landing } from './pages/Landing'
 import { Profile } from './pages/Profile'
 import { ApplicantFile } from './pages/staff/ApplicantFile'
+import { NotFound } from './pages/NotFound'
 import { Interviews } from './pages/staff/Interviews'
 import { Reports } from './pages/staff/Reports'
 import { Users } from './pages/admin/Users'
@@ -42,7 +43,7 @@ export default function App() {
             <Route path="app/application" element={<RequireRole roles={['applicant']}><ApplicationPage /></RequireRole>} />
             <Route path="profile" element={<RequireRole><Profile /></RequireRole>} />
             <Route path="welcome" element={<Welcome />} />
-            <Route path="*" element={<section className="card narrow"><h1>Page not found</h1><Link to="/">Home</Link></section>} />
+            <Route path="*" element={<NotFound />} />
           </Route>
 
           {/* sign in / sign up / password reset: stand-alone split-screen pages */}

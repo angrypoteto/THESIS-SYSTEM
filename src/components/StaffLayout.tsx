@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
 import type { ProgramCycle } from '../lib/types'
 import { BrandMark, Icon, type IconName } from './Icons'
+import { CycleProgress } from './CycleProgress'
 
 export interface StaffContext {
   cycle: ProgramCycle | null
@@ -149,6 +150,7 @@ export function StaffLayout() {
         </div>
       </aside>
       <main className="staff-main">
+        {cycle && <CycleProgress cycle={cycle} />}
         <Outlet context={ctx} />
       </main>
     </div>

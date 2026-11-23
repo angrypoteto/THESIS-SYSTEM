@@ -37,7 +37,8 @@ export function Interviews() {
   const [minutes, setMinutes] = useState(20)
   const [dayEnd, setDayEnd] = useState('17:00')
   const [location, setLocation] = useState('Mandaluyong Educational Service Office, City Hall')
-  const [filter, setFilter] = useState<'unscheduled' | 'scheduled' | 'all'>('unscheduled')
+  const [filter, setFilter] = useState<'today' | 'unscheduled' | 'notsettled' | 'scheduled' | 'all' | null>(null)
+  const [panel, setPanel] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<number, string>>({})
   // forfeit at the interview (client, 2026-11-21): the reason is required
@@ -77,11 +78,8 @@ export function Interviews() {
     return m
   }, [ivs])
 
-  const shown = (rows ?? []).filter((r) => filter === 'all' || (filter === 'scheduled' ? active.has(r.application_id) : !active.has(r.application_id)))
-  const unscheduled = (rows ?? []).filter((r) => !active.has(r.application_id)).length
   const ordered = (rows ?? []).filter((r) => picked.has(r.application_id)) // rows are already in rank order
   const needStart = useRequired(start, 'Set the date and time of the first interview.')
-  const [needPick, setNeedPick] = useState(false)
 
   function toggle(id: string) {
     const next = new Set(picked)
@@ -149,89 +147,91 @@ export function Interviews() {
     return out
   })()
 
+  const all = rows ?? []
+  const todayKey = new Date().toDateString()
+  const isToday = (iso: string) => new Date(iso).toDateString() === todayKey
+  const decided = (r: ReportRow) => ['approved', 'waitlisted', 'not_selected', 'ranked'].includes(r.status)
+  const settled = (r: ReportRow) => ['done', 'forfeited'].includes(latest.get(r.application_id)?.status ?? '')
+  const lists = {
+    today: all.filter((r) => { const a = active.get(r.application_id); return a && isToday(a.slot_start) })
+      .sort((x, y) => active.get(x.application_id)!.slot_start.localeCompare(active.get(y.application_id)!.slot_start)),
+    unscheduled: all.filter((r) => !active.has(r.application_id) && !settled(r) && !decided(r)),
+    notsettled: all.filter((r) => r.status === 'eligible' && !settled(r)),
+    scheduled: all.filter((r) => active.has(r.application_id))
+      .sort((x, y) => active.get(x.application_id)!.slot_start.localeCompare(active.get(y.application_id)!.slot_start)),
+    all,
+  }
+  const view = filter ?? (lists.today.length ? 'today' : 'unscheduled')
+  const list = lists[view]
+  const passed = ivs.filter((i) => i.status === 'done').length
+  const forfeited = ivs.filter((i) => i.status === 'forfeited').length
+  const LABEL: Record<keyof typeof lists, string> = { today: 'Today', unscheduled: 'Without a slot', notsettled: 'Not settled', scheduled: 'Scheduled', all: 'All' }
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Interviews</h1>
-          <p>Schedule interviews for step 2 applicants. Each applicant is emailed the slot, and reminded the day before at 8:00 AM.
-            The interview is the final check: only applicants marked <b>Passed</b> are ranked, and the final selection waits until
-            every interview is settled (Passed or Forfeited).</p>
+          <p>The final check before the ranking: only applicants marked <b>Passed</b> are ranked.</p>
         </div>
       </div>
 
-      <div className="grid four" style={{ marginBottom: 0 }}>
-        <div className="stat warn"><div className="stat-value">{rows ? unscheduled : '…'}</div><div className="stat-label">Without a slot</div></div>
-        <div className="stat"><div className="stat-value">{active.size}</div><div className="stat-label">Scheduled</div></div>
-        <div className="stat"><div className="stat-value">{ivs.filter((i) => i.status === 'done').length}</div><div className="stat-label">Passed</div></div>
-        <div className="stat"><div className="stat-value">{ivs.filter((i) => i.status === 'forfeited').length}</div><div className="stat-label">Forfeited</div></div>
+      <div className="status-line" role="status">
+        <span className="pill info small">{all.length} to interview</span>
+        <span className="pill small">{lists.today.length} today</span>
+        <span className="pill ok small">{passed} passed</span>
+        <span className="pill small">{forfeited} forfeited</span>
+        <span className={`pill small ${lists.notsettled.length ? 'warn' : 'ok'}`}>{lists.notsettled.length} not settled</span>
+        <span className="sep">·</span>
+        <span>{lists.notsettled.length ? 'The final selection waits until every interview is Passed or Forfeited.' : 'Every interview is settled.'}</span>
       </div>
 
       {msg && <p className={msg.kind === 'ok' ? 'success' : 'error'} role="status">{msg.text}</p>}
 
-      <section className="card">
-        <h2>Schedule the selected applicants</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Tick applicants in the list below. They get back-to-back slots in rank order from the start time; when the day ends,
-          the next ones continue the next working day (Sundays skipped). Ticking someone who already has a slot moves them.
-        </p>
-        <div className="row">
-          <label className="field">First interview<input {...needStart.props} type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />{needStart.error}</label>
-          <label className="field">Minutes each<input type="number" min={5} max={240} step={5} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} /></label>
-          <label className="field">Day ends at<input type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} /></label>
-        </div>
-        <label className="field">Venue<input value={location} onChange={(e) => setLocation(e.target.value)} /></label>
-        {preview.length > 0 && (
-          <p className="small muted">
-            {ordered.slice(0, 6).map((r, k) => `${r.full_name}: ${preview[k]}`).join(' · ')}{ordered.length > 6 ? ` · and ${ordered.length - 6} more` : ''}
-          </p>
+      <div className="chips" role="group" aria-label="Show">
+        {(Object.keys(LABEL) as (keyof typeof lists)[]).map((f) => (
+          <button key={f} type="button" className="chip" aria-pressed={view === f} onClick={() => setFilter(f)}>
+            {LABEL[f]}<span className="count">{lists[f].length}</span>
+          </button>
+        ))}
+        {list.length > 0 && (
+          <button type="button" className="btn btn-plain small" style={{ marginLeft: 'auto' }}
+            onClick={() => setPicked(new Set(list.filter((r) => !decided(r) && !settled(r)).map((r) => r.application_id)))}>Select all shown</button>
         )}
-        {needPick && ordered.length === 0 && <p className="field-error" role="alert">Tick at least one applicant in the list below first.</p>}
-        <button aria-busy={busy === 'schedule'} className="btn btn-lg" disabled={busy === 'schedule'}
-          onClick={() => { setNeedPick(ordered.length === 0); if (needStart.check() && ordered.length > 0) schedule() }}>
-          {busy === 'schedule' ? 'Scheduling…' : `Schedule ${ordered.length || ''} interview${ordered.length === 1 ? '' : 's'} and email them`}
-        </button>
-      </section>
+      </div>
 
-      <section className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div className="chips" role="group" aria-label="Filter">
-            {(['unscheduled', 'scheduled', 'all'] as const).map((f) => (
-              <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                {f === 'unscheduled' ? `Without a slot (${unscheduled})` : f === 'scheduled' ? `Scheduled (${active.size})` : 'All'}
-              </button>
-            ))}
-          </div>
-          {shown.length > 0 && (
-            <button type="button" className="btn btn-plain" onClick={() => setPicked(new Set(shown.map((r) => r.application_id)))}>Select all shown</button>
-          )}
-        </div>
-        {rows && shown.length === 0 && <p className="muted">Nobody here. Applicants appear once they have submitted step 2.</p>}
-        {shown.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ minWidth: 820 }}>
-              <thead><tr><th><span className="sr">Select</span></th><th>Rank</th><th>Applicant</th><th>Status</th><th>Interview</th><th>Record</th></tr></thead>
+      <section className="card" aria-label={LABEL[view]}>
+        {rows && list.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>
+            {view === 'today' ? 'No interviews today.' : view === 'notsettled' ? 'Every interview is settled.' : 'Nobody here. Applicants appear once they have submitted step 2.'}
+          </p>
+        ) : (
+          <div className="scroll-box" style={{ maxHeight: 'calc(100vh - var(--stick-top) - 260px)' }}>
+            <table className="table" style={{ minWidth: 860 }}>
+              <thead><tr><th><span className="sr">Select</span></th><th>{view === 'today' || view === 'scheduled' ? 'Time' : 'Rank'}</th><th>Applicant</th><th>Interview</th><th>Result</th></tr></thead>
               <tbody>
-                {shown.map((r) => {
+                {list.map((r) => {
                   const a = active.get(r.application_id)
                   const last = latest.get(r.application_id)
+                  const canPick = !decided(r) && !settled(r)
                   return (
-                    <tr key={r.application_id}>
-                      <td><input type="checkbox" aria-label={`Select ${r.full_name}`} checked={picked.has(r.application_id)} onChange={() => toggle(r.application_id)} /></td>
-                      <td>{r.rank ?? '—'}</td>
+                    <tr key={r.application_id} style={picked.has(r.application_id) ? { background: 'var(--blue-tint)' } : undefined}>
+                      <td>{canPick && <input type="checkbox" aria-label={`Select ${r.full_name}`} checked={picked.has(r.application_id)} onChange={() => toggle(r.application_id)} />}</td>
+                      <td>{(view === 'today' || view === 'scheduled') && a
+                        ? <strong>{new Date(a.slot_start).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}</strong>
+                        : r.rank ?? '—'}</td>
                       <td><Link to={`/staff/applicants/${r.application_id}`} state={{ from: '/staff/interviews' }}>{r.full_name}</Link><div className="small muted">{r.student_number ?? ''}</div></td>
-                      <td>{r.status.replace('_', ' ')}</td>
                       <td>
                         {a ? <>{when(a.slot_start)}<div className="small muted">{a.location ?? ''}</div></>
                           : last ? <span className="muted">{STATUS_TEXT[last.status]} · {when(last.slot_start)}{last.notes ? ` · ${last.notes}` : ''}</span>
-                          : <span className="muted">no slot</span>}
+                          : <span className="muted">no slot yet</span>}
                       </td>
                       <td>
                         {forfeitFor === r.application_id ? (
                           <span style={{ display: 'grid', gap: 6 }}>
                             <textarea aria-label="Why is the application forfeited?" aria-invalid={reasonMissing && !reason.trim()} rows={2}
                               placeholder="Why? (required) e.g. both parents work; income higher than declared"
-                              value={reason} onChange={(e) => setReason(e.target.value)} style={{ minWidth: 240 }} />
+                              value={reason} onChange={(e) => setReason(e.target.value)} style={{ minWidth: 260 }} />
                             {reasonMissing && !reason.trim() && <span className="field-error" role="alert">Write why the application is forfeited.</span>}
                             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                               <button className="btn btn-danger-outline" aria-busy={busy === r.application_id} disabled={busy === r.application_id}
@@ -239,18 +239,20 @@ export function Interviews() {
                               <button className="btn-danger-link" onClick={() => { setForfeitFor(null); setReason(''); setReasonMissing(false) }}>Back</button>
                             </span>
                           </span>
-                        ) : (
+                        ) : last?.status === 'done' ? <span className="pill ok small">Passed</span>
+                          : last?.status === 'forfeited' ? <span className="pill small">Forfeited</span>
+                          : (
                           <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                             {a ? (
                               <>
-                                <input aria-label="Interview notes" placeholder="Notes (optional)" style={{ maxWidth: 170 }}
+                                <input aria-label="Interview notes" placeholder="Notes (optional)" style={{ maxWidth: 160 }}
                                   value={notes[a.id] ?? ''} onChange={(e) => setNotes({ ...notes, [a.id]: e.target.value })} />
                                 <button className="btn btn-ok" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'done')}>Passed</button>
                                 <button className="btn btn-plain" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'no_show')}>No show</button>
                                 <button className="btn-danger-link" disabled={busy === String(a.id)} onClick={() => setStatus(a, 'cancelled')}>Cancel slot</button>
                               </>
-                            ) : <span className="muted small">{last?.status === 'no_show' ? 'no show: tick to reschedule, or' : 'tick to schedule'}</span>}
-                            {['submitted', 'under_review', 'eligible'].includes(r.status) && last?.status !== 'done' && (
+                            ) : <span className="muted small">{last?.status === 'no_show' ? 'No show: tick to reschedule, or' : 'Tick to schedule'}</span>}
+                            {['submitted', 'under_review', 'eligible'].includes(r.status) && (
                               <button className="btn-danger-link" onClick={() => { setForfeitFor(r.application_id); setReason(''); setReasonMissing(false) }}>Forfeit…</button>
                             )}
                           </span>
@@ -264,6 +266,51 @@ export function Interviews() {
           </div>
         )}
       </section>
+
+      {picked.size > 0 && !panel && (
+        <div className="action-bar" role="region" aria-label="Selected applicants">
+          <strong>{picked.size} selected</strong>
+          <button className="btn" onClick={() => setPanel(true)}>Schedule {picked.size} interview{picked.size === 1 ? '' : 's'}…</button>
+          <button type="button" className="link-light" onClick={() => setPicked(new Set())}>Clear</button>
+        </div>
+      )}
+
+      {panel && (
+        <>
+          <div className="drawer-shade" onClick={() => setPanel(false)} />
+          <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby="sched-h">
+            <div className="drawer-head">
+              <h2 id="sched-h">Schedule {ordered.length} interview{ordered.length === 1 ? '' : 's'}</h2>
+              <button type="button" className="drawer-close" aria-label="Close" onClick={() => setPanel(false)}>×</button>
+            </div>
+            <p className="muted small" style={{ margin: 0 }}>
+              Back-to-back slots in rank order from the start time; when the day ends, the next ones continue the next working day
+              (Sundays skipped). Each applicant is emailed, and reminded the day before at 8:00 AM. Someone who already has a slot is moved.
+            </p>
+            <label className="field">First interview starts<input {...needStart.props} type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />{needStart.error}</label>
+            <div className="row">
+              <label className="field">Minutes each<input type="number" min={5} max={240} step={5} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} /></label>
+              <label className="field">Day ends at<input type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} /></label>
+            </div>
+            <label className="field">Place<input value={location} onChange={(e) => setLocation(e.target.value)} /></label>
+            {preview.length > 0 && (
+              <div className="card" style={{ padding: '10px 14px', margin: 0 }}>
+                <div className="small muted">Preview</div>
+                <ul className="small" style={{ margin: '4px 0 0', paddingLeft: 18, maxHeight: 200, overflow: 'auto' }}>
+                  {ordered.map((r, k) => <li key={r.application_id}>{preview[k]} · {r.full_name}</li>)}
+                </ul>
+              </div>
+            )}
+            <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
+              <button aria-busy={busy === 'schedule'} className="btn btn-lg" style={{ flex: 1 }} disabled={busy === 'schedule'}
+                onClick={async () => { if (needStart.check()) { await schedule(); setPanel(false) } }}>
+                {busy === 'schedule' ? 'Scheduling…' : `Schedule ${ordered.length} and email them`}
+              </button>
+              <button className="btn btn-plain" onClick={() => setPanel(false)}>Cancel</button>
+            </div>
+          </aside>
+        </>
+      )}
     </>
   )
 }

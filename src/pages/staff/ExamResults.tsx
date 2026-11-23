@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { matchScores, textToRows, type Cell, type MatchResult } from '../../lib/examImport'
@@ -89,6 +89,31 @@ export function ExamResults() {
         || Number(b.gwa_converted) - Number(a.gwa_converted) || String(a.step1_submitted_at).localeCompare(String(b.step1_submitted_at)))
   }, [all, finalized])
 
+  // the preview also counts scores typed but not saved yet, so staff see the effect of a score right away
+  const preview = useMemo(() => {
+    if (finalized) return ranked.map((r) => ({ r, exam: Number(r.exam_score), comb: Number(r.combined_score), unsaved: false }))
+    const out: { r: Row; exam: number; comb: number; unsaved: boolean }[] = []
+    for (const r of all) {
+      if (r.status !== 'exam_eligible' && r.exam_result !== 'absent') continue
+      const e = edits[r.id]
+      const absent = e ? e.absent : r.exam_result === 'absent'
+      if (absent) continue
+      const typed = e && e.score !== '' && Number(e.score) >= 0 && Number(e.score) <= 100 ? Number(e.score) : null
+      const exam = typed ?? (r.exam_score != null ? Number(r.exam_score) : null)
+      if (exam == null) continue
+      out.push({ r, exam, comb: combined(exam, r.gwa_converted), unsaved: typed != null && typed !== Number(r.exam_score) })
+    }
+    return out.sort((a, b) => b.comb - a.comb || b.exam - a.exam || Number(b.r.gwa_converted) - Number(a.r.gwa_converted)
+      || String(a.r.step1_submitted_at).localeCompare(String(b.r.step1_submitted_at)))
+  }, [all, edits, finalized, ranked])
+  const rankBox = useRef<HTMLDivElement>(null)
+  function jumpToLine() {
+    const box = rankBox.current
+    const row = box?.querySelector<HTMLTableRowElement>('tr.slot-line')
+    if (box && row) box.scrollTo({ top: row.offsetTop - box.clientHeight / 2, behavior: 'smooth' })
+  }
+  const [uploadOpen, setUploadOpen] = useState(false)
+
   const setEdit = (id: string, e: Partial<Edit>) =>
     setEdits((cur) => ({ ...cur, [id]: { score: cur[id]?.score ?? '', absent: cur[id]?.absent ?? false, ...e, fromFile: false } }))
 
@@ -159,203 +184,208 @@ export function ExamResults() {
 
   if (!cycle) return <p className="muted">No program cycle yet. An admin creates one under Cycles &amp; slots.</p>
 
+  const due = cycle.exam_results_final_at ? new Date(cycle.exam_results_final_at) : null
+  const fmtDate = (d: Date) => d.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })
+  const absentCount = all.filter((r) => r.exam_result === 'absent').length
+  const duePassed = due != null && due.getTime() < Date.now()
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Qualifying exam</h1>
           <p>
-            Course-specific exam given on paper at RTU
-            {cycle.exam_at ? ` on ${new Date(cycle.exam_at).toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })}` : ' (date not set)'}
-            {cycle.exam_venue ? `, ${cycle.exam_venue}` : ''}. Combined result = 70% exam score + 30% GWA. The top {take} proceed to step 2.
+            Given on paper at RTU{cycle.exam_at ? ` on ${fmtDate(new Date(cycle.exam_at))}` : ''}
+            {cycle.exam_venue ? `, ${cycle.exam_venue}` : ''}. Combined result = 70% exam score + 30% GWA.
           </p>
         </div>
+        {!finalized && takers.length > 0 && (
+          <div className="actions" style={{ marginTop: 0 }}>
+            <button className="btn btn-outline" onClick={() => setUploadOpen(true)}>Upload Excel or CSV</button>
+            <button className="btn btn-plain" onClick={downloadList}>Download the list</button>
+          </div>
+        )}
       </div>
 
-      <div className="grid four" style={{ marginBottom: 0 }}>
-        <div className="stat"><div className="stat-value">{rows ? takers.length : '…'}</div><div className="stat-label">Exam takers</div></div>
-        <div className="stat warn"><div className="stat-value">{rows ? noScore.length : '…'}</div><div className="stat-label">Waiting for a score</div></div>
-        <div className="stat"><div className="stat-value">{finalized ? all.filter((r) => r.exam_result === 'passed').length : Math.min(take, ranked.length)} / {take}</div><div className="stat-label">{finalized ? 'Proceeded to step 2' : 'Would proceed now'}</div></div>
-        <div className="stat"><div className="stat-value">{all.filter((r) => r.exam_result === 'absent').length}</div><div className="stat-label">Absent</div></div>
+      <div className="status-line" role="status">
+        {finalized ? (
+          <>
+            <span className="pill ok small">{all.filter((r) => r.exam_result === 'passed').length} proceeded to step 2</span>
+            <span className="pill small">{all.filter((r) => r.exam_result === 'failed').length} did not proceed</span>
+            <span className="pill small">{absentCount} absent</span>
+            <span className="sep">·</span><span>The cut-off was made {fmtDate(new Date(cycle.exam_finalized_at!))}.</span>
+          </>
+        ) : (
+          <>
+            <span className={`pill small ${noScore.length ? 'warn' : 'info'}`}>{rows ? takers.length - noScore.length : '…'} of {takers.length} scored</span>
+            <span className="pill small">{absentCount} absent</span>
+            <span className="pill small">Top {take} proceed</span>
+            <span className="sep">·</span>
+            {due ? (
+              <span>The cut-off is automatic on <b>{fmtDate(due)}</b>{duePassed
+                ? (noScore.length ? `, once the last ${noScore.length} score${noScore.length === 1 ? ' is' : 's are'} in.` : ', within the hour.')
+                : '. Scores can be corrected until then.'}</span>
+            ) : (
+              <span>No exam results date yet, so the cut-off cannot happen. <Link to="/admin/cycles">Set it on Cycles &amp; slots.</Link></span>
+            )}
+          </>
+        )}
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
       {ok && <p className="success" role="status">{ok}</p>}
-
-      {!finalized && takers.length > 0 && (
-        <section className="card">
-          <h2>Upload RTU's score list</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            An Excel (.xlsx) or CSV file with a <strong>student number</strong> column and a <strong>score</strong> column (0 to 100; write
-            {' '}<code>absent</code> for a student who did not take the exam). Other columns and their order do not matter. The scores are filled
-            into the list below by student number; check them, then press <strong>Save</strong>.
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <label className="btn file-button" aria-busy={busy === 'file'}>
-              {busy === 'file' ? 'Reading…' : 'Upload Excel or CSV'}
-              <input type="file" accept=".xlsx,.csv,.txt,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={onFile} disabled={busy === 'file'} />
-            </label>
-            <button className="btn btn-plain" onClick={downloadList}>Download the list of exam takers (CSV)</button>
-          </div>
-          <p className="small muted">Tip: send the downloaded list to RTU, ask them to fill in the Score column, and upload it back.</p>
-          {fileResult && (
-            <div className={`banner ${fileResult.notFound.length || fileResult.invalid.length ? 'warn' : 'info'}`} style={{ marginTop: 12 }} role="status">
-              <strong>{fileResult.file}:</strong> {fileResult.matched} score{fileResult.matched === 1 ? '' : 's'} filled in below (not saved yet).
-              {fileResult.notFound.length > 0 && <> Not exam takers of this cycle: {fileResult.notFound.slice(0, 8).join(', ')}{fileResult.notFound.length > 8 ? ` and ${fileResult.notFound.length - 8} more` : ''}.</>}
-              {fileResult.invalid.length > 0 && <> Score not readable (must be 0 to 100 or absent): {fileResult.invalid.join(', ')}.</>}
-              {fileResult.duplicates.length > 0 && <> Listed twice (the last one is used): {fileResult.duplicates.join(', ')}.</>}
-              {fileResult.matched === 0 && fileResult.notFound.length === 0 && <> No student numbers found. The file needs a student number column and a score column.</>}
-            </div>
-          )}
-          <details style={{ marginTop: 10 }}>
-            <summary className="small">Or paste the two columns</summary>
-            <label className="field">
-              <span className="sr">Pasted score list</span>
-              <textarea rows={4} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'2026-00123\t87.5\n2026-00456\t72\n2026-00789\tabsent'} />
-            </label>
-            <button className="btn btn-plain" disabled={!paste.trim()} onClick={() => { applyMatches(textToRows(paste), 'Pasted list'); setPaste('') }}>Fill in the list</button>
-          </details>
-        </section>
+      {saveSummary && (saveSummary.not_found.length > 0 || saveSummary.skipped.length > 0) && (
+        <div className="banner warn" role="status">
+          {saveSummary.not_found.length > 0 && <>Not found: {saveSummary.not_found.join(', ')}. </>}
+          {saveSummary.skipped.length > 0 && <>Not saved: {saveSummary.skipped.map((x) => `${x.student_number} (${x.error})`).join(', ')}.</>}
+        </div>
       )}
 
-      <section className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>Exam takers ({takers.length})</h2>
-          <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {takers.length > 8 && <input type="search" placeholder="Find a name or student number" aria-label="Find an exam taker" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 240 }} />}
-            {!finalized && (
-              <button className="btn" aria-busy={busy === 'save'} disabled={busy === 'save' || changed.length === 0} onClick={saveAll}>
-                {busy === 'save' ? 'Saving…' : changed.length ? `Save ${changed.length} change${changed.length === 1 ? '' : 's'}` : 'Save'}
-              </button>
+      {takers.length === 0 ? (
+        <section className="card">
+          <p className="muted" style={{ margin: 0 }}>
+            Nobody is cleared for the exam in this cycle yet. Applicants appear here once their step 1 documents are accepted
+            and they pass the step 1 rules.
+          </p>
+        </section>
+      ) : (
+        <div className="side-by-side">
+          <section className="card" aria-labelledby="scores-h">
+            <div className="card-head">
+              <h2 id="scores-h">Scores ({takers.length})</h2>
+              <input type="search" placeholder="Find a name or student number" aria-label="Find an exam taker" value={search}
+                onChange={(e) => setSearch(e.target.value)} style={{ width: 260, maxWidth: '100%' }} />
+            </div>
+            <div className="scroll-box">
+              <table className="table">
+                <thead>
+                  <tr><th>Applicant</th><th className="num">GWA</th><th>Score (%)</th><th>Absent</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {shown.map((r) => {
+                    const e = edits[r.id]
+                    const absent = e ? e.absent : isAbsent(r)
+                    const value = e && !e.absent ? e.score : absent ? '' : r.exam_score != null ? String(r.exam_score) : ''
+                    const dirty = changed.some(([id]) => id === r.id)
+                    const bad = badEdits.some(([id]) => id === r.id)
+                    return (
+                      <tr key={r.id} style={dirty ? { background: 'var(--blue-tint)' } : undefined}>
+                        <td><Link to={`/staff/applicants/${r.id}`} state={{ from: '/staff/exam' }}>{name(r)}</Link><div className="small muted">{sn(r) || '—'}</div></td>
+                        <td className="num">{r.gwa_converted ?? '—'}%</td>
+                        <td>
+                          {finalized ? (r.exam_score != null ? `${r.exam_score}%` : '—') : (
+                            <input type="number" min={0} max={100} step={0.01} inputMode="decimal" style={{ width: 100 }}
+                              aria-label={`Exam score of ${name(r)}`} aria-invalid={bad} disabled={absent} value={value}
+                              onChange={(ev) => setEdit(r.id, { score: ev.target.value, absent: false })} />
+                          )}
+                        </td>
+                        <td>
+                          {finalized ? (isAbsent(r) ? 'Yes' : '') : (
+                            <input type="checkbox" aria-label={`${name(r)} did not take the exam`} checked={absent}
+                              onChange={(ev) => setEdit(r.id, { absent: ev.target.checked, score: ev.target.checked ? '' : (r.exam_score != null ? String(r.exam_score) : '') })} />
+                          )}
+                        </td>
+                        <td>
+                          {finalized ? (
+                            r.exam_result === 'passed' ? <span className="pill ok small">{r.applicant_no ?? 'proceeded'}</span>
+                              : r.exam_result === 'absent' ? <span className="pill small">absent</span>
+                              : <span className="pill warn small">did not proceed</span>
+                          ) : dirty ? <span className="pill info small">{e?.fromFile ? 'from file' : 'not saved'}</span>
+                            : isAbsent(r) ? <span className="pill small">absent</span>
+                            : r.exam_score != null ? <span className="pill ok small">recorded</span>
+                            : <span className="pill warn small">waiting</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {shown.length === 0 && <tr><td colSpan={5} className="muted">No exam taker matches “{search}”.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            {!finalized && changed.length > 0 && (
+              <div className="save-bar" role="status">
+                <span>{changed.length} change{changed.length === 1 ? '' : 's'} not saved yet{changed.some(([, x]) => x.absent) ? '. Students marked absent are emailed when you save.' : '.'}</span>
+                <button className="btn" aria-busy={busy === 'save'} disabled={busy === 'save'} onClick={saveAll}>
+                  {busy === 'save' ? 'Saving…' : `Save ${changed.length} change${changed.length === 1 ? '' : 's'}`}
+                </button>
+              </div>
             )}
-          </span>
-        </div>
-        {saveSummary && (saveSummary.not_found.length > 0 || saveSummary.skipped.length > 0) && (
-          <div className="banner warn" style={{ marginTop: 12 }} role="status">
-            {saveSummary.not_found.length > 0 && <>Not found: {saveSummary.not_found.join(', ')}. </>}
-            {saveSummary.skipped.length > 0 && <>Not saved: {saveSummary.skipped.map((s) => `${s.student_number} (${s.error})`).join(', ')}.</>}
-          </div>
-        )}
-        {takers.length === 0 ? (
-          <p className="muted">
-            Nobody is cleared for the exam in this cycle yet. Applicants appear here after they pass the step 1 screening
-            (Applicant file → Run step 1 screening gates).
-          </p>
-        ) : (
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table className="table" style={{ minWidth: 900 }}>
-              <thead>
-                <tr><th>Applicant</th><th>Student no.</th><th>Course</th><th className="num">GWA</th><th>Exam score (%)</th><th>Absent</th><th className="num">Combined</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {shown.map((r) => {
-                  const e = edits[r.id]
-                  const absent = e ? e.absent : isAbsent(r)
-                  const value = e && !e.absent ? e.score : absent ? '' : r.exam_score != null ? String(r.exam_score) : ''
-                  const dirty = changed.some(([id]) => id === r.id)
-                  const bad = badEdits.some(([id]) => id === r.id)
-                  const preview = !absent && value !== '' && Number(value) >= 0 && Number(value) <= 100 ? combined(Number(value), r.gwa_converted) : null
-                  return (
-                    <tr key={r.id} style={dirty ? { background: 'var(--blue-tint)' } : undefined}>
-                      <td><Link to={`/staff/applicants/${r.id}`} state={{ from: '/staff/exam' }}>{name(r)}</Link></td>
-                      <td>{sn(r) || '—'}</td>
-                      <td className="small">{r.applicants?.course ?? '—'}</td>
-                      <td className="num">{r.gwa_converted ?? '—'}%</td>
-                      <td>
-                        {finalized ? (r.exam_score != null ? `${r.exam_score}%` : '—') : (
-                          <input type="number" min={0} max={100} step={0.01} inputMode="decimal" style={{ width: 110, borderColor: bad ? 'var(--warn)' : undefined }}
-                            aria-label={`Exam score of ${name(r)}`} aria-invalid={bad} disabled={absent} value={value}
-                            onChange={(ev) => setEdit(r.id, { score: ev.target.value, absent: false })} />
-                        )}
-                      </td>
-                      <td>
-                        {finalized ? (isAbsent(r) ? 'Yes' : '') : (
-                          <input type="checkbox" aria-label={`${name(r)} did not take the exam`} checked={absent}
-                            onChange={(ev) => setEdit(r.id, { absent: ev.target.checked, score: ev.target.checked ? '' : (r.exam_score != null ? String(r.exam_score) : '') })} />
-                        )}
-                      </td>
-                      <td className="num">{absent ? '—' : preview != null ? `${preview.toFixed(2)}%` : '—'}</td>
-                      <td>
-                        {finalized ? (
-                          r.exam_result === 'passed' ? <span className="pill ok small">{r.applicant_no ?? 'proceeded'}</span>
-                            : r.exam_result === 'absent' ? <span className="pill small">absent</span>
-                            : <span className="pill warn small">did not proceed</span>
-                        ) : dirty ? <span className="pill info small">{e?.fromFile ? 'from file, not saved' : 'not saved'}</span>
-                          : isAbsent(r) ? <span className="pill small">absent</span>
-                          : r.exam_score != null ? <span className="pill ok small">recorded</span>
-                          : <span className="pill warn small">waiting</span>}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {shown.length === 0 && <tr><td colSpan={8} className="muted">No exam taker matches “{search}”.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {!finalized && changed.length > 0 && (
-          <p className="small muted" style={{ marginBottom: 0 }}>
-            {changed.length} change{changed.length === 1 ? '' : 's'} not saved yet. Marking a student absent emails them right away when you save.
-          </p>
-        )}
-      </section>
+          </section>
 
-      <section className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>Academic and examination ranking{finalized ? ' (final)' : ' (preview)'}</h2>
+          <section className="card" aria-labelledby="rank-h">
+            <div className="card-head">
+              <h2 id="rank-h">{finalized ? 'Final ranking' : 'Ranking preview'}</h2>
+              {preview.length > take && take > 0 && <button type="button" className="btn btn-plain small" onClick={jumpToLine}>Jump to the line</button>}
+            </div>
+            {!finalized && <p className="small muted" style={{ margin: 0 }}>Updates as you type. Rows marked “not saved” use a score you have not saved yet.</p>}
+            {preview.length === 0 ? <p className="muted">The ranking appears as soon as scores are entered.</p> : (
+              <div className="scroll-box" ref={rankBox}>
+                <table className="table">
+                  <thead>
+                    <tr><th className="num">#</th><th>Applicant</th><th className="num">Exam</th><th className="num">GWA</th><th className="num">Combined</th>{finalized && <th>Applicant ID</th>}</tr>
+                  </thead>
+                  <tbody>
+                    {preview.map((p, i) => (
+                      <tr key={p.r.id} className={`${i === take && take > 0 ? 'slot-line' : ''}${i >= take ? ' below-line' : ''}`}>
+                        <td className="num"><strong>{finalized ? p.r.academic_rank : i + 1}</strong></td>
+                        <td><Link to={`/staff/applicants/${p.r.id}`} state={{ from: '/staff/exam' }}>{name(p.r)}</Link>
+                          {p.unsaved && <> <span className="pill info small">not saved</span></>}</td>
+                        <td className="num">{p.exam.toFixed(2)}</td>
+                        <td className="num">{Number(p.r.gwa_converted).toFixed(2)}</td>
+                        <td className="num"><strong>{p.comb.toFixed(2)}</strong></td>
+                        {finalized && <td>{p.r.applicant_no ?? <span className="muted">did not proceed</span>}</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {take > 0 && preview.length > take && <p className="small muted" style={{ margin: 0 }}>Blue line: the top {take} get an Applicant ID and go to step 2.</p>}
+          </section>
         </div>
-        {!finalized && (() => {
-          const due = cycle.exam_results_final_at ? new Date(cycle.exam_results_final_at) : null
-          const todo = changed.length > 0 ? 'Save your changes first. '
-            : noScore.length > 0 ? `${noScore.length} exam taker${noScore.length === 1 ? ' has' : 's have'} no score yet: enter a score or tick Absent. `
-            : ranked.length > 0 ? 'All scores are in. ' : ''
-          return due ? (
-            <div className="banner info" role="note">
-              {todo}The cut-off is automatic: after {due.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })}, once every
-              exam taker has a score or is marked absent, the top {take} get an Applicant ID and proceed to step 2 (they are emailed);
-              the others see that they did not proceed. Scores can be corrected until then.
-              {due.getTime() < Date.now() && noScore.length === 0 && changed.length === 0 && ranked.length > 0 && ' The date has passed: the cut-off is made within the hour.'}
-            </div>
-          ) : (
-            <div className="banner warn" role="note">
-              {todo}No exam results date is set for this cycle, so the cut-off cannot happen yet. Set &ldquo;Exam results final on&rdquo; on Cycles &amp; slots:
-              the top {take} then proceed to step 2 automatically after that date.
-            </div>
-          )
-        })()}
-        {ranked.length === 0 && <p className="muted">The ranking appears here as soon as scores are saved.</p>}
-        {ranked.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ minWidth: 760 }}>
-              <thead>
-                <tr><th>Rank</th><th>Applicant</th><th>Course</th><th className="num">Exam (70%)</th><th className="num">GWA (30%)</th><th className="num">Combined</th>{finalized && <th>Applicant ID</th>}</tr>
-              </thead>
-              <tbody>
-                {ranked.map((r, i) => (
-                  <RankRow key={r.id} r={r} rank={finalized ? r.academic_rank! : i + 1} line={i === take - 1 && ranked.length > take} finalized={finalized} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </>
-  )
-}
+      )}
 
-function RankRow({ r, rank, line, finalized }: { r: Row; rank: number; line: boolean; finalized: boolean }) {
-  return (
-    <>
-      <tr>
-        <td><strong>{rank}</strong></td>
-        <td><Link to={`/staff/applicants/${r.id}`} state={{ from: '/staff/exam' }}>{name(r)}</Link><div className="small muted">{sn(r)}</div></td>
-        <td className="small">{r.applicants?.course ?? '—'}</td>
-        <td className="num">{r.exam_score}%</td>
-        <td className="num">{r.gwa_converted}%</td>
-        <td className="num"><strong>{Number(r.combined_score).toFixed(2)}%</strong></td>
-        {finalized && <td>{r.applicant_no ?? <span className="muted">did not proceed</span>}</td>}
-      </tr>
-      {line && <tr className="slot-line"><td colSpan={finalized ? 7 : 6}><div>Step 2 line. Applicants below do not proceed.</div></td></tr>}
+      {uploadOpen && (
+        <>
+          <div className="drawer-shade" onClick={() => setUploadOpen(false)} />
+          <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby="upload-h">
+            <div className="drawer-head">
+              <h2 id="upload-h">Upload RTU's score list</h2>
+              <button type="button" className="drawer-close" aria-label="Close" onClick={() => setUploadOpen(false)}>×</button>
+            </div>
+            <p className="muted" style={{ margin: 0 }}>
+              An Excel (.xlsx) or CSV file with a <strong>student number</strong> column and a <strong>score</strong> column (0 to 100; write
+              {' '}<code>absent</code> for a student who did not take the exam). Other columns do not matter. The scores are filled into the list by
+              student number; nothing is saved until you press Save.
+            </p>
+            <label className="btn file-button" aria-busy={busy === 'file'}>
+              {busy === 'file' ? 'Reading…' : 'Choose a file'}
+              <input type="file" accept=".xlsx,.csv,.txt,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={onFile} disabled={busy === 'file'} />
+            </label>
+            {fileResult && (
+              <div className={`banner ${fileResult.notFound.length || fileResult.invalid.length ? 'warn' : 'info'}`} role="status">
+                <strong>{fileResult.file}:</strong> {fileResult.matched} score{fileResult.matched === 1 ? '' : 's'} filled in (not saved yet).
+                {fileResult.notFound.length > 0 && <> Not exam takers of this cycle: {fileResult.notFound.slice(0, 8).join(', ')}{fileResult.notFound.length > 8 ? ` and ${fileResult.notFound.length - 8} more` : ''}.</>}
+                {fileResult.invalid.length > 0 && <> Score not readable (must be 0 to 100 or absent): {fileResult.invalid.join(', ')}.</>}
+                {fileResult.duplicates.length > 0 && <> Listed twice (the last one is used): {fileResult.duplicates.join(', ')}.</>}
+                {fileResult.matched === 0 && fileResult.notFound.length === 0 && <> No student numbers found. The file needs a student number column and a score column.</>}
+              </div>
+            )}
+            <details>
+              <summary className="small">Or paste the two columns</summary>
+              <label className="field">
+                <span className="sr">Pasted score list</span>
+                <textarea rows={5} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'2026-00123\t87.5\n2026-00456\t72\n2026-00789\tabsent'} />
+              </label>
+              <button className="btn btn-plain" onClick={() => { if (paste.trim()) { applyMatches(textToRows(paste), 'Pasted list'); setPaste('') } }}>Fill in the list</button>
+            </details>
+            <p className="small muted" style={{ margin: 0 }}>Tip: send RTU the downloaded list, ask them to fill in the Score column, and upload it back.</p>
+            <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
+              <button className="btn" style={{ flex: 1 }} onClick={() => setUploadOpen(false)}>{fileResult?.matched ? 'Check the scores in the list' : 'Close'}</button>
+            </div>
+          </aside>
+        </>
+      )}
     </>
   )
 }
