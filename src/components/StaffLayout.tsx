@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useReveal } from './useReveal'
-import { NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
 import type { ProgramCycle } from '../lib/types'
@@ -19,13 +19,21 @@ export function useStaff(): StaffContext {
   return useOutletContext<StaffContext>()
 }
 
-const WORK: [string, string, IconName][] = [
+// grouped by the program's steps (client, Nov 24: "a separate navigation menu for step 1")
+const OVERVIEW: [string, string, IconName][] = [
   ['/staff', 'Review queue', 'queue'],
-  ['/staff/applicants', 'Applicants', 'users'],
-  ['/staff/exam', 'Qualifying exam', 'exam'],
+  ['/staff/applicants', 'All applicants', 'users'],
+  ['/staff/reports', 'Reports', 'reports'],
+]
+const STEP1: [string, string, IconName][] = [
+  ['/staff/applicants?step=1', 'Step 1 applications', 'file'],
+  ['/staff/exam-rooms', 'Exam rooms', 'home'],
+  ['/staff/exam', 'Exam scores', 'exam'],
+]
+const STEP2: [string, string, IconName][] = [
+  ['/staff/applicants?step=2', 'Step 2 applications', 'file'],
   ['/staff/interviews', 'Interviews', 'calendar'],
   ['/staff/ranking', 'Ranking', 'ranking'],
-  ['/staff/reports', 'Reports', 'reports'],
 ]
 const ADMIN: [string, string, IconName][] = [
   ['/admin/criteria', 'Criteria & weights', 'sliders'],
@@ -45,6 +53,7 @@ const ADMIN: [string, string, IconName][] = [
 export function StaffLayout() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [cycles, setCycles] = useState<ProgramCycle[]>([])
   const [cycleId, setCycleId] = useState<number | null>(null)
   const [queueCount, setQueueCount] = useState<number | null>(null)
@@ -94,7 +103,13 @@ export function StaffLayout() {
   const ctx: StaffContext = { cycle, cycles, refreshCounts: () => setTick((t) => t + 1), reloadCycles: () => setCyclesTick((t) => t + 1) }
 
   const link = ([to, label, icon]: [string, string, IconName]) => (
-    <NavLink key={to} to={to} end={to === '/staff'} className={({ isActive }) => 'side-link' + (isActive ? ' active' : '')}>
+    <NavLink key={to} to={to} end={to === '/staff'}
+      className={({ isActive }) => {
+        // links that differ only by ?step= are told apart by the query as well
+        const q = to.includes('?') ? to.slice(to.indexOf('?')) : ''
+        const on = isActive && (q ? location.search === q : !/step=/.test(location.search))
+        return 'side-link' + (on ? ' active' : '')
+      }}>
       <Icon name={icon} />
       <span>{label}</span>
       {to === '/staff' && queueCount ? <span className="side-badge">{queueCount}</span> : null}
@@ -123,8 +138,12 @@ export function StaffLayout() {
           </select>
         </label>
         <nav className="side-nav" aria-label={isAdmin ? 'Admin' : 'Staff'}>
-          <span className="side-group">Work</span>
-          {WORK.map(link)}
+          <span className="side-group">Overview</span>
+          {OVERVIEW.map(link)}
+          <span className="side-group">Step 1 · Screening and exam</span>
+          {STEP1.map(link)}
+          <span className="side-group">Step 2 · Requirements</span>
+          {STEP2.map(link)}
           {isAdmin && (
             <>
               <span className="side-group">Administration</span>

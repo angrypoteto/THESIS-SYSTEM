@@ -18,7 +18,7 @@ export function Dashboard() {
 
 interface ApplicantRow { school_id: number | null; barangay_id: number | null; course: string | null; year_level: number | null; sex: string | null; address_line: string | null; shs_school: string | null; department: string | null }
 interface AppRow {
-  id: string; status: string; stage: 1 | 2; submitted_at: string | null; cycle_id: number; applicant_no: string | null
+  id: string; status: string; stage: 1 | 2; submitted_at: string | null; cycle_id: number; applicant_no: string | null; exam_room: string | null
   documents: { type_code: string; verification_status: string; is_current: boolean }[]
 }
 interface Note { id: number; title: string; body: string; created_at: string; read_at: string | null }
@@ -75,7 +75,7 @@ function ApplicantHome() {
       setCycle(cyc)
       setNotes((n.data as Note[]) ?? [])
       if (cyc) {
-        const r = await supabase.from('applications').select('id,status,stage,submitted_at,cycle_id,applicant_no,documents(type_code,verification_status,is_current)').eq('cycle_id', cyc.id).maybeSingle()
+        const r = await supabase.from('applications').select('id,status,stage,submitted_at,cycle_id,applicant_no,exam_room,documents(type_code,verification_status,is_current)').eq('cycle_id', cyc.id).maybeSingle()
         const row = r.data as AppRow | null
         if (live) setApp(row)
         // the step 2 requirements are shown only to applicants who passed the exam (client, 2026-11-21)
@@ -115,7 +115,7 @@ function ApplicantHome() {
     if (!profileComplete) return { title: 'Complete your profile', text: 'Your application opens once your profile is complete: sex, address, barangay, senior high school, school, year level, department and course. It takes two minutes.', to: '/profile', cta: 'Complete my profile' }
     if (reupload.length) return { tone: 'warn', title: `Upload a clearer copy of your ${DOC_NAME[reupload[0].type_code] ?? 'document'}`, text: 'The office could not read it. Take the photo again in good light, with the whole page flat in the frame.', to: '/app/application', cta: 'Upload again' }
     if (app?.stage === 2 && app.status === 'draft') return { title: 'Complete step 2', text: 'You passed the qualifying exam. Add your household, income and living conditions, and upload the step 2 requirements.', when: cycle?.step2_closes_at ?? undefined, to: '/app/application', cta: 'Continue to step 2' }
-    if (s === 'exam_eligible' && cycle?.exam_at) return { title: 'Take the qualifying exam', text: 'You are cleared for the exam. Come on time.', when: cycle.exam_at, where: cycle.exam_venue ?? 'Rizal Technological University', bring: 'Your RTU ID and a pencil', calendar: ['CMCS qualifying exam', cycle.exam_at, 180, cycle.exam_venue ?? 'RTU'] }
+    if (s === 'exam_eligible' && cycle?.exam_at) return { title: 'Take the qualifying exam', text: app?.exam_room ? 'You are cleared for the exam. Go to your room and come on time.' : 'You are cleared for the exam. Your room will be sent to your email and to Messages once RTU assigns it.', when: cycle.exam_at, where: [app?.exam_room ? `Room ${app.exam_room.replace(/^room\s*/i, '')}` : null, cycle.exam_venue ?? 'Rizal Technological University'].filter(Boolean).join(', '), bring: 'Your RTU ID and a pencil', calendar: ['CMCS qualifying exam', cycle.exam_at, 180, [app?.exam_room, cycle.exam_venue ?? 'RTU'].filter(Boolean).join(', ')] }
     if (s === 'exam_eligible') return { tone: 'calm', title: 'You are cleared for the qualifying exam', text: 'The exam schedule will be sent to your email and to Messages here in the portal.' }
     if (s === 'eligible' && interview) return { title: 'Go to your interview', text: 'Bring the original copies of your step 2 documents.', when: interview.slot_start, where: interview.location ?? 'Mandaluyong City Hall', calendar: ['CMCS scholarship interview', interview.slot_start, 30, interview.location ?? 'Mandaluyong City Hall'] }
     if (s === 'eligible') return { tone: 'calm', title: 'Your interview comes next', text: 'The office schedules it and sends the date, time and place to your email and to Messages here in the portal.' }

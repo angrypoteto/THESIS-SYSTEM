@@ -28,6 +28,7 @@ import { Users } from './pages/admin/Users'
 import { Applicants } from './pages/staff/Applicants'
 import { DocumentCheck } from './pages/staff/DocumentCheck'
 import { ExamResults } from './pages/staff/ExamResults'
+import { ExamRooms } from './pages/staff/ExamRooms'
 import { Cycles } from './pages/admin/Cycles'
 import { Ranking } from './pages/staff/Ranking'
 import { StaffHome } from './pages/staff/StaffHome'
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="staff/documents/:id" element={<DocumentCheck />} />
             <Route path="staff/ranking" element={<Ranking />} />
             <Route path="staff/exam" element={<ExamResults />} />
+            <Route path="staff/exam-rooms" element={<ExamRooms />} />
             <Route path="staff/interviews" element={<Interviews />} />
             <Route path="staff/reports" element={<Reports />} />
             <Route path="staff/profile" element={<Profile />} />

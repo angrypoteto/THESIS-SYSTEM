@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LoadMore, useLazyCount } from '../../components/Skeleton'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { loadCycleApplications, type StaffAppRow } from '../../lib/staff'
 
@@ -14,6 +14,7 @@ export function Applicants() {
   const [rows, setRows] = useState<StaffAppRow[] | null>(null)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('all')
+  const step = Number(useSearchParams()[0].get('step')) || null
   const cycleId = cycle?.id
 
   useEffect(() => {
@@ -27,15 +28,15 @@ export function Applicants() {
 
   const shown = useMemo(() => (rows ?? []).filter((r) => {
     const name = `${r.applicants?.profiles?.full_name ?? ''} ${r.applicants?.profiles?.student_number ?? ''}`.toLowerCase()
-    return (status === 'all' || r.status === status) && name.includes(q.toLowerCase())
-  }), [rows, q, status])
+    return (status === 'all' || r.status === status) && (!step || r.stage === step) && name.includes(q.toLowerCase())
+  }), [rows, q, status, step])
 
   const lazy = useLazyCount(shown.length, 40)
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Applicants</h1>
+          <h1>{step ? `Step ${step} applications` : 'All applicants'}</h1>
           <p>{cycle?.name ?? ''} · {rows?.length ?? 0} submitted</p>
         </div>
       </div>

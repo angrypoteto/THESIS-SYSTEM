@@ -7,6 +7,7 @@ const TOPICS: [string, string, string][] = [
   ['reupload', 'Clearer copy needed', 'When staff ask for a clearer photo or scan of a document.'],
   ['exam_schedule', 'Qualifying exam schedule', 'When an applicant is cleared for the exam (date, time and venue).'],
   ['exam_schedule_changed', 'Exam schedule set or changed', 'When the exam date or venue is set later or changes.'],
+  ['exam_room', 'Exam room', 'When staff email the rooms from RTU (Exam rooms page); again if a room changes.'],
   ['exam_passed', 'Passed the exam', 'Proceeds to step 2, with the Applicant ID.'],
   ['exam_not_passed', 'Did not pass / absent', 'Did not qualify to proceed, or did not take the exam.'],
   ['interview', 'Interview schedule', 'Scheduled, moved or cancelled.'],
