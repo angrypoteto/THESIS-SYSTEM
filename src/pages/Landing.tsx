@@ -44,37 +44,63 @@ export function Landing() {
 
   // light hero: solid blue primary + outline; dark closing band: white + ghost
   const ctaButtons = (onDark: boolean) => session ? (
-    <Link to="/app" className={`btn btn-lg ${onDark ? 'btn-on-blue' : ''}`}>Go to my dashboard</Link>
+    <Link to="/app" className={`btn btn-lg ${onDark ? 'btn-on-blue' : ''}`}>Go to my home screen</Link>
   ) : (
     <>
-      <Link to="/signup" className={`btn btn-lg ${onDark ? 'btn-on-blue' : ''}`}>Start my application</Link>
-      <Link to="/signin" className={`btn btn-lg ${onDark ? 'btn-ghost-on-blue' : 'btn-outline'}`}>I already have an account</Link>
+      <Link to="/check" className={`btn btn-lg ${onDark ? 'btn-on-blue' : ''}`}>Check if I can apply</Link>
+      <Link to="/signin" className={`btn btn-lg ${onDark ? 'btn-ghost-on-blue' : 'btn-outline'}`}>I have an account</Link>
     </>
   )
+  const daysLeft = open && cycle ? Math.max(0, Math.ceil((Date.parse(cycle.closes_at) - now) / 86400000)) : null
+  const short = (d: string | null) => (d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : 'To follow')
+  const path: [string, string, string][] = cycle ? [
+    ['Apply online', 'COR and grades', `Until ${short(cycle.closes_at)}`],
+    ['Qualifying exam', cycle.exam_venue ?? 'At RTU', short(cycle.exam_at)],
+    ['Step 2 requirements', 'Exam passers only', cycle.step2_closes_at ? `Until ${short(cycle.step2_closes_at)}` : 'To follow'],
+    ['Interview', 'Mandaluyong City Hall', 'After step 2'],
+    ['Result', 'In the portal', 'After the interviews'],
+  ] : []
+  const pathAt = cycle ? (now <= Date.parse(cycle.closes_at) ? 0 : cycle.exam_finalized_at ? (cycle.step2_closes_at && now > Date.parse(cycle.step2_closes_at) ? 3 : 2) : 1) : 0
 
   return (
     <>
-      {/* faint Mandaluyong aerial photo behind the hero (CSS var so the GitHub Pages base path is respected) */}
-      <div className="hero-band has-photo"
-        style={{ margin: '-28px calc(50% - 50vw) 0', '--hero-bg': `url(${new URL('images/mandaluyong-city.jpg', document.baseURI).href})` } as React.CSSProperties}>
-        <div className="hero-inner">
-          <div>
-            <PartnerLockup size={60} onDark />
+      {/* redesign (Nov 24): the student-facing headline, a live countdown, and the cycle's path on frosted glass over the city photo */}
+      <section className="hero-full" aria-labelledby="hero-h"
+        style={{ '--hero-bg': `url(${new URL('images/mandaluyong-city.jpg', document.baseURI).href})` } as React.CSSProperties}>
+        <div className="hero-full-inner">
+          <div className="hero2-text">
             {cycle ? (
-              <span className="pill">{open ? 'Applications open' : 'Step 1 closed'} · {cycle.school_year}, {cycle.term}{open ? ` · until ${fmtDate(cycle.closes_at)}` : ''}</span>
-            ) : (
-              <span className="pill">No application period is open right now</span>
-            )}
-            <h1>City of Mandaluyong Collegiate Scholarship (CMCS) Program</h1>
+              <span className="live-chip on-photo">{open && <span className="live-dot" aria-hidden="true" />}
+                {open ? <>Applications open for SY {cycle.school_year} · <b>{daysLeft === 0 ? 'last day' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}</b></>
+                  : <>{cycle.school_year}, {cycle.term} · step 1 is closed</>}
+              </span>
+            ) : <span className="live-chip on-photo">No application period is open right now</span>}
+            <h1 id="hero-h">Your college, <em>supported by your city.</em></h1>
             <p>
-              The City of Mandaluyong supports incoming 1st and 2nd year students of Rizal Technological University. Apply from home,
-              upload your documents, take the qualifying exam at RTU, and follow your application until the result.
+              The City of Mandaluyong Collegiate Scholarship (CMCS) Program helps incoming 1st and 2nd year students of Rizal Technological University
+              who live in Mandaluyong. Apply from your phone in about 20 minutes, then follow every step until the result.
             </p>
             <div className="actions" style={{ marginTop: 0 }}>{ctaButtons(true)}</div>
+            <ul className="trust on-photo">
+              <li>Free to apply</li><li>Protected under the Data Privacy Act of 2012</li>
+            </ul>
           </div>
+          {cycle && (
+            <div className="glass-path">
+              <h2>Your path this cycle</h2>
+              <ol>
+                {path.map(([t, sub, when], i) => (
+                  <li key={t} className={i < pathAt ? 'done' : i === pathAt ? 'now' : ''}>
+                    <i aria-hidden="true">{i < pathAt ? '✓' : i + 1}</i>
+                    <span>{t}<small>{sub}</small></span>
+                    <small className="when">{when}</small>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
-      </div>
-
+      </section>
       {/* the two institutions behind the program */}
       <section className="partner-band single" aria-labelledby="partners">
         <h2 id="partners" className="sr">Program partners</h2>

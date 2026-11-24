@@ -3,7 +3,7 @@ import { Models } from './pages/admin/Models'
 import { Faqs } from './pages/admin/Faqs'
 import { Emails } from './pages/admin/Emails'
 import { CheckEmail, Welcome } from './pages/auth/AfterSignUp'
-import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import { AuthLayout } from './components/AuthLayout'
 import { Layout } from './components/Layout'
@@ -19,12 +19,16 @@ import { Dashboard } from './pages/Dashboard'
 import { Landing } from './pages/Landing'
 import { Profile } from './pages/Profile'
 import { ApplicantFile } from './pages/staff/ApplicantFile'
+import { NotFound } from './pages/NotFound'
+import { Messages } from './pages/Messages'
+import { EligibilityCheck } from './pages/EligibilityCheck'
 import { Interviews } from './pages/staff/Interviews'
 import { Reports } from './pages/staff/Reports'
 import { Users } from './pages/admin/Users'
 import { Applicants } from './pages/staff/Applicants'
 import { DocumentCheck } from './pages/staff/DocumentCheck'
 import { ExamResults } from './pages/staff/ExamResults'
+import { ExamRooms } from './pages/staff/ExamRooms'
 import { Cycles } from './pages/admin/Cycles'
 import { Ranking } from './pages/staff/Ranking'
 import { StaffHome } from './pages/staff/StaffHome'
@@ -40,9 +44,11 @@ export default function App() {
             <Route index element={<Landing />} />
             <Route path="app" element={<RequireRole><Dashboard /></RequireRole>} />
             <Route path="app/application" element={<RequireRole roles={['applicant']}><ApplicationPage /></RequireRole>} />
+            <Route path="app/messages" element={<RequireRole roles={['applicant']}><Messages /></RequireRole>} />
             <Route path="profile" element={<RequireRole><Profile /></RequireRole>} />
             <Route path="welcome" element={<Welcome />} />
-            <Route path="*" element={<section className="card narrow"><h1>Page not found</h1><Link to="/">Home</Link></section>} />
+            <Route path="check" element={<EligibilityCheck />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
 
           {/* sign in / sign up / password reset: stand-alone split-screen pages */}
@@ -62,8 +68,10 @@ export default function App() {
             <Route path="staff/documents/:id" element={<DocumentCheck />} />
             <Route path="staff/ranking" element={<Ranking />} />
             <Route path="staff/exam" element={<ExamResults />} />
+            <Route path="staff/exam-rooms" element={<ExamRooms />} />
             <Route path="staff/interviews" element={<Interviews />} />
             <Route path="staff/reports" element={<Reports />} />
+            <Route path="staff/profile" element={<Profile />} />
             <Route path="admin" element={<Navigate to="/admin/criteria" replace />} />
             <Route path="admin/criteria" element={<RequireRole roles={['admin']}><Criteria /></RequireRole>} />
             <Route path="admin/audit" element={<RequireRole roles={['admin']}><AuditLog /></RequireRole>} />

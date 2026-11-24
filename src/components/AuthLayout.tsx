@@ -9,7 +9,7 @@ const COPY: Record<string, { title: string; text: string }> = {
   },
   '/signup': {
     title: 'Start your scholarship application',
-    text: 'Create your account with your RTU student number. Your application saves as you go, so you can come back anytime.',
+    text: 'Three short screens, then you are in. Your account keeps your application, documents and messages from the office in one place.',
   },
 }
 COPY['/check-email'] = {
@@ -18,7 +18,7 @@ COPY['/check-email'] = {
 }
 const DEFAULT = { title: 'Your account', text: 'Reset your password to get back into the Scholarship Portal.' }
 
-const STEPS = ['Step 1: RTU COR and grades', 'Qualifying exam at RTU', 'Step 2: household and requirements', 'Ranking and decision by the office']
+const STEPS = ['Apply online: COR and grades', 'Qualifying exam at RTU', 'Step 2 requirements', 'Interview at City Hall', 'Result in the portal']
 
 /**
  * Stand-alone pages for sign in, sign up and password reset (no site top bar): a photo panel with the
@@ -40,7 +40,7 @@ export function AuthLayout() {
           <Logo which="mandaluyong" size={40} />
           <span className="auth-strip-name">
             <strong>Scholarship Portal</strong>
-            <span>City of Mandaluyong · RTU</span>
+            <span>City of Mandaluyong · MESO</span>
           </span>
           <Logo which="meso" size={40} />
         </Link>
@@ -53,7 +53,7 @@ export function AuthLayout() {
             <li key={s}><span>{i + 1}</span>{s}</li>
           ))}
         </ol>
-        <p className="auth-panel-foot">Scholarship for incoming 1st and 2nd year RTU students · City of Mandaluyong</p>
+        <p className="auth-panel-foot">Free to apply · Protected under the Data Privacy Act of 2012 · City of Mandaluyong</p>
       </aside>
       <main className="auth-main">
         <div className="auth-form-wrap">

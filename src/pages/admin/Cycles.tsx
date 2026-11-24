@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { cycleStage } from '../../components/CycleProgress'
 import { useStaff } from '../../components/StaffLayout'
 import { supabase } from '../../lib/supabase'
 import type { ProgramCycle } from '../../lib/types'
@@ -130,17 +131,19 @@ export function Cycles() {
       <div className="grid two grid-top">
         <section className="card">
           <h2>Cycles</h2>
-          <ul className="checklist">
-            {cycles.map((c) => (
-              <li key={c.id}>
-                <button type="button" className={`link-button ${editing === c.id ? 'active' : ''}`} onClick={() => { setEditing(c.id); setMsg(null) }}>
-                  {c.name}
-                </button>{' '}
-                <span className="muted small">{c.school_year}, {c.term} · {c.status} · {c.slots} slots</span>
-              </li>
-            ))}
-            {cycles.length === 0 && <li className="muted">No cycles yet.</li>}
-          </ul>
+          <div className="cycle-cards">
+            {cycles.map((c) => {
+              const st = cycleStage(c)
+              return (
+                <button key={c.id} type="button" className={`cycle-card ${editing === c.id ? 'on' : ''}`} aria-pressed={editing === c.id} onClick={() => { setEditing(c.id); setMsg(null) }}>
+                  <b>{c.name}</b>
+                  <span className={`pill small ${st.done ? '' : 'info'}`}>{st.done ? 'Finished' : st.stage}</span>
+                  <span className="small muted">{c.school_year}, {c.term} · {c.slots} slots{c.step2_slots ? ` · ${c.step2_slots} go to step 2` : ''}</span>
+                </button>
+              )
+            })}
+            {cycles.length === 0 && <p className="muted">No cycles yet.</p>}
+          </div>
         </section>
 
         <section className="card">
@@ -150,28 +153,29 @@ export function Cycles() {
             <label className="field">School year<input {...bad('school_year')} value={f.school_year} onChange={set('school_year')} placeholder="2027-2028" />{err('school_year')}</label>
             <label className="field">Term<input {...bad('term')} value={f.term} onChange={set('term')} />{err('term')}</label>
           </div>
-          <h3>Step 1: initial screening</h3>
+          <h3 className="tl-h"><span>1</span>Step 1 opens and closes</h3>
           <div className="row">
             <label className="field">Opens<input {...bad('opens_at')} type="datetime-local" value={f.opens_at} onChange={set('opens_at')} />{err('opens_at')}</label>
             <label className="field">Closes (deadline)<input {...bad('closes_at')} type="datetime-local" value={f.closes_at} onChange={set('closes_at')} />{err('closes_at')}</label>
           </div>
-          <h3>Qualifying exam (given by RTU)</h3>
+          <h3 className="tl-h"><span>2</span>Qualifying exam (given by RTU)</h3>
           <div className="row">
             <label className="field">Date and time<input {...bad('exam_at')} type="datetime-local" value={f.exam_at} onChange={set('exam_at')} />{err('exam_at')}</label>
             <label className="field">Venue<input value={f.exam_venue} onChange={set('exam_venue')} /></label>
           </div>
+          <h3 className="tl-h"><span>3</span>Exam results become final</h3>
           <label className="field">
             Exam results final on
             <input {...bad('exam_results_final_at')} type="datetime-local" value={f.exam_results_final_at} onChange={set('exam_results_final_at')} />{err('exam_results_final_at')}
             <span className="muted small">After this date, once every exam taker has a score or is marked absent, the cut-off is made automatically: the top applicants get an Applicant ID and proceed to step 2. Until then scores can be corrected. Leave empty to hold the cut-off.</span>
           </label>
-          <h3>Step 2: requirements for qualified examinees</h3>
+          <h3 className="tl-h"><span>4</span>Step 2 deadline (exam passers)</h3>
           <label className="field">
             Deadline
             <input {...bad('step2_closes_at')} type="datetime-local" value={f.step2_closes_at} onChange={set('step2_closes_at')} />{err('step2_closes_at')}
             <span className="muted small">The final selection is made automatically after this deadline, once every step-2 application has been checked and every interview is settled. Leave empty to hold the selection.</span>
           </label>
-          <h3>Selection</h3>
+          <h3 className="tl-h"><span>5</span>Interviews and final selection</h3>
           <label className="field">
             Applicants who proceed to step 2
             <input {...bad('step2_slots')} type="number" min={0} value={f.step2_slots} onChange={set('step2_slots')} placeholder="e.g. twice the slots" />{err('step2_slots')}

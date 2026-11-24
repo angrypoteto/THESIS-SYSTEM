@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SkeletonLines } from '../../components/Skeleton'
 import { supabase } from '../../lib/supabase'
 
 /** Email topics, in the order an applicant meets them (public.email_topic in the database). */
@@ -6,6 +7,7 @@ const TOPICS: [string, string, string][] = [
   ['reupload', 'Clearer copy needed', 'When staff ask for a clearer photo or scan of a document.'],
   ['exam_schedule', 'Qualifying exam schedule', 'When an applicant is cleared for the exam (date, time and venue).'],
   ['exam_schedule_changed', 'Exam schedule set or changed', 'When the exam date or venue is set later or changes.'],
+  ['exam_room', 'Exam room', 'When staff email the rooms from RTU (Exam rooms page); again if a room changes.'],
   ['exam_passed', 'Passed the exam', 'Proceeds to step 2, with the Applicant ID.'],
   ['exam_not_passed', 'Did not pass / absent', 'Did not qualify to proceed, or did not take the exam.'],
   ['interview', 'Interview schedule', 'Scheduled, moved or cancelled.'],
@@ -61,7 +63,7 @@ export function Emails() {
 
       <section className="card">
         <h2>Send an email for</h2>
-        {!off ? <p className="muted">Loading…</p> : (
+        {!off ? <SkeletonLines lines={6} /> : (
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th style={{ width: 90 }}>Email</th><th>Notice</th><th>When</th></tr></thead>

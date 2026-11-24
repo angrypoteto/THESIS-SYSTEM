@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { SkeletonPage } from './Skeleton'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import type { AppRole } from '../lib/types'
@@ -11,9 +12,9 @@ export function RequireRole({ roles, children }: { roles?: AppRole[]; children: 
   const { session, profile, loading } = useAuth()
   const location = useLocation()
 
-  if (loading) return <p className="muted">Loading…</p>
+  if (loading) return <SkeletonPage />
   if (!session) return <Navigate to="/signin" replace state={{ from: location.pathname }} />
-  if (!profile) return <p className="muted">Loading your profile…</p>
+  if (!profile) return <SkeletonPage />
   if (profile.status === 'disabled') return <p className="error">This account is disabled. Contact the Educational Service Office.</p>
   if (roles && !roles.includes(profile.role)) return <Navigate to="/app" replace />
   return <>{children}</>

@@ -12,6 +12,7 @@ export function SubmitSection({ data, readOnly, reload }: SectionProps) {
   const [signed, setSigned] = useState(app.truthfulness_signed)
   const [busy, setBusy] = useState(false)
   const [problems, setProblems] = useState<string[]>([])
+  const [tried, setTried] = useState(false)
   const s = app.ses_inputs
 
   const checks: [string, boolean][] = [
@@ -63,13 +64,13 @@ export function SubmitSection({ data, readOnly, reload }: SectionProps) {
       <h2>Review and submit</h2>
       <ul className="checklist">
         {checks.map(([label, ok]) => (
-          <li key={label} className={ok ? 'ok' : 'missing'}>
+          <li key={label} className={ok ? 'ok' : tried ? 'missing missing-now' : 'missing'}>
             <span aria-hidden>{ok ? '✓' : '○'}</span> {label}
           </li>
         ))}
       </ul>
-      <label className="check mt">
-        <input type="checkbox" checked={signed} disabled={readOnly} onChange={(e) => setSigned(e.target.checked)} />
+      <label className="check mt" style={tried && !signed ? { color: 'var(--error)' } : undefined}>
+        <input type="checkbox" checked={signed} disabled={readOnly} aria-invalid={tried && !signed} onChange={(e) => setSigned(e.target.checked)} />
         <span>
           I certify that the information and documents I gave are true and complete. I understand that false information is a
           ground for removal from the program and that the office may verify my answers, including by a home visit.
@@ -84,10 +85,17 @@ export function SubmitSection({ data, readOnly, reload }: SectionProps) {
       )}
       {!readOnly && (
         <div className="save-bar">
-          <button aria-busy={busy} className="button" disabled={!ready || !signed || busy} onClick={submit}>
+          {/* never greyed out for missing items: pressing it marks what is missing in red (owner rule) */}
+          <button aria-busy={busy} className="button" disabled={busy}
+            onClick={() => { setTried(true); if (ready && signed) submit() }}>
             {busy ? 'Submitting…' : 'Submit application'}
           </button>
-          {!ready && <span className="muted">Complete the items marked ○ first.</span>}
+          {tried && (!ready || !signed) && (
+            <span className="field-error" role="alert">
+              {!ready ? `${checks.filter(([, ok]) => !ok).length} item${checks.filter(([, ok]) => !ok).length === 1 ? '' : 's'} above still missing (in red)` : ''}
+              {!ready && !signed ? '; ' : ''}{!signed ? 'tick the declaration' : ''}.
+            </span>
+          )}
         </div>
       )}
       <p className="muted small">After you submit, the application can no longer be edited.</p>

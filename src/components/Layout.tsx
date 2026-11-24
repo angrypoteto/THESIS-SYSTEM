@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useReveal } from './useReveal'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { isConfigured, supabase } from '../lib/supabase'
-import { BrandMark, Icon } from './Icons'
+import { Icon } from './Icons'
 import { Logo } from './Logos'
 
 /** Public + applicant shell: top bar (applicants have only 3 destinations and mostly use phones). */
@@ -13,9 +14,37 @@ export function Layout() {
   const role = profile?.role
   const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  // the top bar is see-through over the public page's photo, and turns to frosted glass once the page scrolls
+  const [scrolled, setScrolled] = useState(false)
+  const doSignOut = async () => {
+    await signOut()
+    navigate('/')
+  }
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 24)
+    on()
+    window.addEventListener('scroll', on, { passive: true })
+    return () => window.removeEventListener('scroll', on)
+  }, [])
+  useReveal()
   const path = useLocation().pathname
   // close the phone menu whenever the page changes
   useEffect(() => setMenuOpen(false), [path])
+  // close the phone menu when tapping outside it or pressing Escape (owner, Nov 24)
+  useEffect(() => {
+    if (!menuOpen) return
+    const outside = (e: PointerEvent) => {
+      const t = e.target as Element | null
+      if (t && !t.closest('#main-nav') && !t.closest('.menu-toggle')) setMenuOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     if (!profile || role !== 'applicant') return
@@ -25,64 +54,68 @@ export function Layout() {
       .select('id', { count: 'exact', head: true })
       .is('read_at', null)
       .then(({ count }) => live && setUnread(count ?? 0))
+    const cleared = () => setUnread(0)
+    window.addEventListener('messages-read', cleared)
     return () => {
       live = false
+      window.removeEventListener('messages-read', cleared)
     }
-  }, [profile, role])
+  }, [profile, role, path])
 
   return (
     <div className="shell">
-      <header className="topbar">
+      <header className={`topbar${isLanding && !scrolled && !menuOpen ? ' over-hero' : ''}${scrolled ? ' scrolled' : ''}`}>
         <div className="topbar-inner">
           <Link to="/" className="brand">
-            <BrandMark />
+            {/* MESO in the top bar; the city seal is in the hero below (owner, Nov 24) */}
+            <span className="brandmark-wrap" aria-hidden="true"><Logo which="meso" size={38} /></span>
             <span className="brand-text">
               <strong>Scholarship Portal</strong>
-              <span>City Government of Mandaluyong</span>
             </span>
           </Link>
           {session && role === 'applicant' && (
-            <Link to="/app" className="mobile-only bell-link" aria-label={`Messages, ${unread} unread`}>
+            <Link to="/app/messages" className="mobile-only bell-link" aria-label={`Messages, ${unread} unread`}>
               <Icon name="bell" size={22} />
               {unread > 0 && <span className="side-badge bell-badge">{unread}</span>}
             </Link>
           )}
-          <button type="button" className="menu-toggle mobile-only" aria-expanded={menuOpen} aria-controls="main-nav"
-            onClick={() => setMenuOpen((o) => !o)}>
-            {menuOpen ? 'Close' : 'Menu'}
+          <button type="button" className={`menu-toggle hamburger mobile-only ${menuOpen ? 'open' : ''}`} aria-expanded={menuOpen} aria-controls="main-nav"
+            aria-label={menuOpen ? 'Close the menu' : 'Open the menu'} onClick={() => setMenuOpen((o) => !o)}>
+            <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
           </button>
+          {/* logo on the left, the pages in the middle, the account actions on the right (owner, Nov 24) */}
           <nav id="main-nav" className={`nav ${menuOpen ? 'open' : ''}`} aria-label="Main">
             {session ? (
               <>
-                <NavLink to="/app" end>Dashboard</NavLink>
+                <NavLink to="/app" end>Home</NavLink>
                 {role === 'applicant' && <NavLink to="/app/application">My application</NavLink>}
-                {(role === 'evaluator' || role === 'admin') && <NavLink to="/staff">Staff workspace</NavLink>}
-                <NavLink to="/profile">Profile</NavLink>
                 {role === 'applicant' && (
-                  <Link to="/app" className="desktop-only" aria-label={`Messages, ${unread} unread`} style={{ position: 'relative' }}>
-                    <Icon name="bell" size={22} />
-                    {unread > 0 && <span className="side-badge" style={{ position: 'absolute', top: 2, right: 0, minWidth: 18, padding: '0 5px' }}>{unread}</span>}
-                  </Link>
+                  <NavLink to="/app/messages" aria-label={`Messages, ${unread} unread`}>
+                    Messages{unread > 0 && <span className="nav-count">{unread}</span>}
+                  </NavLink>
                 )}
-                <button
-                  className="link-button"
-                  onClick={async () => {
-                    await signOut()
-                    navigate('/')
-                  }}
-                >
-                  Sign out
-                </button>
+                {(role === 'evaluator' || role === 'admin') && <NavLink to="/staff">Staff workspace</NavLink>}
+                <NavLink to={role === 'evaluator' || role === 'admin' ? '/staff/profile' : '/profile'}>Profile</NavLink>
+                {/* phones: the menu also holds Sign out, at the bottom */}
+                <button className="link-button nav-signout mobile-only" onClick={doSignOut}><Icon name="logout" size={18} /><span>Sign out</span></button>
               </>
             ) : (
               <>
-                <NavLink to="/signin">Sign in</NavLink>
-                <NavLink to="/signup" className="button small">
-                  Create account
-                </NavLink>
+                <NavLink to="/signin" className="mobile-only">Sign in</NavLink>
+                <NavLink to="/check" className="button small mobile-only">Apply now</NavLink>
               </>
             )}
           </nav>
+          <div className="nav-end desktop-only">
+            {session ? (
+              <button className="link-button nav-signout" title="Sign out" onClick={doSignOut}><Icon name="logout" size={18} /><span>Sign out</span></button>
+            ) : (
+              <>
+                <NavLink to="/signin" className="nav-pill">Sign in</NavLink>
+                <NavLink to="/check" className="button small nav-cta">Apply now</NavLink>
+              </>
+            )}
+          </div>
         </div>
       </header>
       {!isConfigured && (
@@ -90,9 +123,17 @@ export function Layout() {
           Supabase is not configured. Copy <code>web/.env.example</code> to <code>web/.env.local</code>.
         </div>
       )}
-      <main className="content">
+      <main className={`content ${session && role === 'applicant' ? 'has-tabbar' : ''}`}>
         <Outlet />
       </main>
+      {session && role === 'applicant' && (
+        <nav className="tabbar mobile-only" aria-label="Applicant">
+          <NavLink to="/app" end><Icon name="home" size={22} /><span>Home</span></NavLink>
+          <NavLink to="/app/application"><Icon name="file" size={22} /><span>Application</span></NavLink>
+          <NavLink to="/app/messages"><Icon name="bell" size={22} /><span>Messages</span>{unread > 0 && <i className="tab-badge">{unread}</i>}</NavLink>
+          <NavLink to="/profile"><Icon name="user" size={22} /><span>Profile</span></NavLink>
+        </nav>
+      )}
       {/* full footer on the landing page; other pages show only the copyright line (owner, 2026-11-09) */}
       <footer className={isLanding ? 'footer' : 'footer footer-compact'}>
         {isLanding && (

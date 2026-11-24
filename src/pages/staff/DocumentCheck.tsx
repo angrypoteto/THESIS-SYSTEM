@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
+import { SkeletonPage } from '../../components/Skeleton'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { supabase } from '../../lib/supabase'
@@ -115,7 +116,7 @@ export function DocumentCheck() {
     navigate(`/staff/applicants/${doc.application_id}`, { state: location.state })
   }
 
-  if (!doc) return <p className="muted">Loading…</p>
+  if (!doc) return <SkeletonPage cards={1} side />
   const a = doc.applications?.applicants
   const isPdf = doc.mime_type === 'application/pdf'
   const expected: [string, string][] = [
@@ -216,7 +217,7 @@ export function DocumentCheck() {
             ))}
           </section>
 
-          <section className="card" aria-labelledby="dec">
+          <section className="card decision-dock" aria-labelledby="dec">
             <h2 id="dec">Your decision</h2>
             <label className="field">Reason (required, saved to the audit log)
               <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Readable; name, school and GWA match the form" />

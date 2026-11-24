@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ACCEPTED_TYPES, formatBytes, prepareUpload, sha256Hex } from '../../lib/files'
+import { Icon } from '../../components/Icons'
 import { supabase } from '../../lib/supabase'
 import type { DocumentRow, DocumentType } from '../../lib/types'
 import type { SectionProps } from './ApplicationPage'
@@ -51,6 +52,39 @@ export function DocumentsSection({ data, readOnly, reload }: SectionProps) {
   )
 }
 
+/** Quick readability check on the phone before uploading (redesign, Nov 24): too dark, too blurry or too small.
+ *  Advice only: the applicant can still upload. PDFs are not checked. */
+async function readability(file: File): Promise<string | null> {
+  if (!file.type.startsWith('image/')) return null
+  try {
+    const bmp = await createImageBitmap(file)
+    if (Math.min(bmp.width, bmp.height) < 600) return 'The photo is small, so the text may be hard to read.'
+    const w = 320, h = Math.round((bmp.height / bmp.width) * 320)
+    const c = document.createElement('canvas'); c.width = w; c.height = h
+    const ctx = c.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(bmp, 0, 0, w, h)
+    const px = ctx.getImageData(0, 0, w, h).data
+    const g = new Float32Array(w * h)
+    let sum = 0
+    for (let i = 0; i < w * h; i++) { g[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]; sum += g[i] }
+    const mean = sum / (w * h)
+    if (mean < 70) return 'The photo looks too dark.'
+    // sharpness: variance of a simple Laplacian
+    let lsum = 0, lsq = 0, n = 0
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x
+      const l = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w]
+      lsum += l; lsq += l * l; n++
+    }
+    const variance = lsq / n - (lsum / n) ** 2
+    if (variance < 60) return 'The photo looks blurry.'
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function DocCard(props: {
   type: DocumentType
   current: DocumentRow | null
@@ -62,6 +96,18 @@ export function DocCard(props: {
   const { type, current, appId, applicantId, readOnly, reload } = props
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [doubt, setDoubt] = useState<{ file: File; reason: string } | null>(null)
+  const [readable, setReadable] = useState(false)
+
+  async function pick(file: File) {
+    setError(null)
+    setReadable(false)
+    const reason = await readability(file)
+    if (reason) return setDoubt({ file, reason })
+    setDoubt(null)
+    await upload(file)
+    if (file.type.startsWith('image/')) setReadable(true)
+  }
 
   async function upload(file: File) {
     setBusy(true)
@@ -121,22 +167,39 @@ export function DocCard(props: {
             </button>
           </div>
         )}
+        {readable && !error && <div className="small success">Looks readable. Uploaded.</div>}
+        {doubt && (
+          <div className="doubt" role="alert">
+            <b>{doubt.reason}</b> Take it again in good light, with the whole page flat and in focus.
+            <span style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-plain small" onClick={() => { const f = doubt.file; setDoubt(null); upload(f) }}>Upload this one anyway</button>
+            </span>
+          </div>
+        )}
         {error && <div className="error small">{error}</div>}
       </div>
       {!readOnly && (
-        <label className={`button ${current ? 'ghost' : ''} small file-button`}>
-          {busy ? 'Uploading…' : current ? 'Replace' : 'Upload'}
-          <input
-            type="file"
-            accept={ACCEPTED_TYPES.join(',')}
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              e.target.value = ''
-              if (f) upload(f)
-            }}
-          />
-        </label>
+        <div className="doc-actions">
+          {/* phones: opens the back camera directly */}
+          <label className="button ghost small file-button mobile-only">
+            <Icon name="camera" size={18} /> Take a photo
+            <input type="file" accept="image/*" capture="environment" disabled={busy}
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) pick(f) }} />
+          </label>
+          <label className={`button ${current ? 'ghost' : ''} small file-button`}>
+            {busy ? 'Uploading…' : current ? 'Replace' : 'Upload a file'}
+            <input
+              type="file"
+              accept={ACCEPTED_TYPES.join(',')}
+              disabled={busy}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) pick(f)
+              }}
+            />
+          </label>
+        </div>
       )}
     </div>
   )

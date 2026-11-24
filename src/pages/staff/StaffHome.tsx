@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SkeletonRows } from '../../components/Skeleton'
 import { Link } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
 import { loadCycleApplications, queueItems, waited, type QueueKind, type StaffAppRow } from '../../lib/staff'
@@ -58,20 +59,14 @@ export function StaffHome() {
         </div>
       )}
 
-      <div className="grid four" style={{ marginBottom: 0 }}>
-        <div className="stat"><div className="stat-value">{rows?.length ?? '…'}</div><div className="stat-label">Submitted applications</div></div>
-        <div className="stat warn"><div className="stat-value">{count('document')}</div><div className="stat-label">Documents to check</div></div>
-        <div className="stat"><div className="stat-value">{count('gates')}</div><div className="stat-label">Ready for eligibility gates</div></div>
-        <div className="stat"><div className="stat-value">{statusCount('eligible')}</div><div className="stat-label">Eligible for ranking</div></div>
-        <div className="stat"><div className="stat-value">{count('waiting')}</div><div className="stat-label">Waiting for the applicant</div></div>
-      </div>
-
       <div className="chips" role="group" aria-label="Filter the queue">
-        {(['all', 'document', 'gates', 'household', 'waiting'] as const).map((k) => (
+        {(['all', 'document', 'gates', 'household', 'waiting'] as const).filter((k) => k === 'all' || k === 'document' || count(k) > 0).map((k) => (
           <button key={k} type="button" className="chip" aria-pressed={filter === k} onClick={() => setFilter(k)}>
-            {k === 'all' ? `All (${items.length})` : `${KIND_PILL[k][1]} (${count(k)})`}
+            {k === 'all' ? 'All' : k === 'document' ? 'Documents to check' : k === 'waiting' ? 'Waiting for the applicant' : KIND_PILL[k][1]}
+            <span className="count">{k === 'all' ? items.length : count(k)}</span>
           </button>
         ))}
+        <span className="small muted" style={{ alignSelf: 'center', marginLeft: 'auto' }}>{rows?.length ?? '…'} submitted · {statusCount('eligible')} eligible</span>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -107,7 +102,7 @@ export function StaffHome() {
               <tr><td colSpan={5} className="muted" style={{ padding: 24, textAlign: 'center' }}>Nothing waiting. Well done.</td></tr>
             )}
             {!rows && !error && (
-              <tr><td colSpan={5} className="muted" style={{ padding: 24 }}>Loading…</td></tr>
+              <SkeletonRows rows={6} cols={5} />
             )}
           </tbody>
         </table>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { SkeletonLines } from '../../components/Skeleton'
 import { useRequired } from '../../components/useRequired'
 import { supabase } from '../../lib/supabase'
 
@@ -89,7 +90,7 @@ export function Faqs() {
       <div className="grid two grid-top">
         <section className="card">
           <h2>Questions ({published} published{list.length > published ? `, ${list.length - published} draft${list.length - published === 1 ? '' : 's'}` : ''})</h2>
-          {!faqs && <p className="muted">Loading…</p>}
+          {!faqs && <SkeletonLines lines={5} />}
           {faqs && list.length === 0 && <p className="muted">No questions yet. Add the first one on the right.</p>}
           <ol className="faq-admin">
             {list.map((f, i) => (
@@ -143,6 +144,17 @@ export function Faqs() {
             <button className="btn btn-lg" aria-busy={busy} disabled={busy} onClick={save}>{draft.id == null ? 'Add question' : 'Save changes'}</button>
             {draft.id != null && <button className="btn btn-plain" onClick={() => setDraft(EMPTY)}>Cancel editing</button>}
           </div>
+          {(draft.question.trim() || draft.answer.trim()) && (
+            <div className="faq-preview" aria-label="Preview">
+              <span className="small muted">Preview: how it looks on the home page</span>
+              <div className="faq">
+                <details open>
+                  <summary>{draft.question.trim() || 'Your question'}</summary>
+                  <p style={{ whiteSpace: 'pre-line' }}>{draft.answer.trim() || 'Your answer'}</p>
+                </details>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </>

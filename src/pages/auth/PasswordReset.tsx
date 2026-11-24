@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { PasswordInput } from '../../components/PasswordInput'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthProvider'
 import { siteUrl, supabase } from '../../lib/supabase'
@@ -107,11 +108,11 @@ export function ResetPassword() {
       <form onSubmit={submit} className="form">
         <label>
           New password
-          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" />
+          <PasswordInput value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" />
         </label>
         <label>
           Confirm new password
-          <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+          <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
         </label>
         {error && <p className="error">{error}</p>}
         <button className="button">Save password</button>
