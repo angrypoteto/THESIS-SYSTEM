@@ -1202,3 +1202,10 @@ select[aria-invalid="true"] { border-color: var(--error); background-color: #FEF
 @media (max-width: 640px) {
   .do-now.blue { background: linear-gradient(180deg, rgba(0, 43, 127, 0.97) 0%, rgba(0, 43, 127, 0.93) 60%, rgba(8, 22, 56, 0.86) 100%), var(--do-now-photo) center / cover no-repeat, var(--blue); }
 }
+/* Do this now: the hero's dark shade instead of blue (owner, Nov 24) */
+.do-now.blue { background: linear-gradient(100deg, rgba(8, 22, 56, 0.97) 0%, rgba(8, 22, 56, 0.92) 40%, rgba(11, 31, 77, 0.82) 70%, rgba(11, 31, 77, 0.72) 100%),
+  var(--do-now-photo) center 45% / cover no-repeat, var(--navy);
+  box-shadow: 0 14px 30px rgba(8, 22, 56, 0.28); }
+@media (max-width: 640px) {
+  .do-now.blue { background: linear-gradient(180deg, rgba(8, 22, 56, 0.95) 0%, rgba(8, 22, 56, 0.9) 55%, rgba(11, 31, 77, 0.84) 100%), var(--do-now-photo) center / cover no-repeat, var(--navy); }
+}
