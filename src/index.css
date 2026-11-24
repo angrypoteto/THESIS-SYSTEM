@@ -1187,3 +1187,18 @@ select[aria-invalid="true"] { border-color: var(--error); background-color: #FEF
 .room-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
 .room-list li { display: flex; justify-content: space-between; gap: 8px; background: var(--bg); border-radius: 10px; padding: 7px 10px; font-size: 14px; }
 .room-list b { font-variant-numeric: tabular-nums; color: var(--blue-dark); }
+/* hero: a darker shade over the photo (owner, Nov 24) */
+.hero-full { background: linear-gradient(100deg, rgba(8, 22, 56, 0.97) 0%, rgba(8, 22, 56, 0.92) 40%, rgba(11, 31, 77, 0.82) 70%, rgba(11, 31, 77, 0.72) 100%),
+  var(--hero-bg) center 40% / cover no-repeat, var(--navy); }
+@media (max-width: 900px) {
+  .hero-full { background: linear-gradient(180deg, rgba(8, 22, 56, 0.95) 0%, rgba(8, 22, 56, 0.9) 55%, rgba(11, 31, 77, 0.84) 100%),
+    var(--hero-bg) center / cover no-repeat, var(--navy); }
+}
+/* Do this now: a darker shade over the photo, like the hero (owner, Nov 24) */
+.do-now.blue { background: linear-gradient(100deg, rgba(0, 43, 127, 0.98) 0%, rgba(0, 43, 127, 0.94) 42%, rgba(4, 30, 92, 0.86) 72%, rgba(8, 22, 56, 0.8) 100%),
+  var(--do-now-photo) center 45% / cover no-repeat, var(--blue); }
+.do-now.warn { background: linear-gradient(100deg, rgba(120, 50, 5, 0.98) 0%, rgba(120, 50, 5, 0.93) 45%, rgba(80, 32, 3, 0.84) 100%),
+  var(--do-now-photo) center 45% / cover no-repeat, #8A3C07; }
+@media (max-width: 640px) {
+  .do-now.blue { background: linear-gradient(180deg, rgba(0, 43, 127, 0.97) 0%, rgba(0, 43, 127, 0.93) 60%, rgba(8, 22, 56, 0.86) 100%), var(--do-now-photo) center / cover no-repeat, var(--blue); }
+}
