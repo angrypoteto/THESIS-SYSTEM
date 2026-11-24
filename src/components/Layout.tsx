@@ -141,6 +141,7 @@ export function Layout() {
           <div className="footer-brand">
             <div className="footer-logos">
               <Logo which="mandaluyong" size={52} />
+              <Logo which="meso" size={52} />
             </div>
             <strong>Scholarship Portal</strong>
             <p>
