@@ -101,8 +101,6 @@ export function Layout() {
               </>
             ) : (
               <>
-                <NavLink to="/" end>Home</NavLink>
-                <NavLink to="/check">Can I apply?</NavLink>
                 <NavLink to="/signin" className="mobile-only">Sign in</NavLink>
                 <NavLink to="/check" className="button small mobile-only">Apply now</NavLink>
               </>
