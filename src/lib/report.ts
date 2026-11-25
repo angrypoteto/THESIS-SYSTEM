@@ -56,6 +56,44 @@ export function reportCsv(rows: ReportRow[]): string {
   return '﻿' + [head.join(','), ...lines].join('\r\n') + '\r\n'
 }
 
+/** The report as a real Excel workbook (.xlsx), downloaded directly (owner, Nov 25: "excel directly, not CSV").
+ *  Numbers stay numbers and dates stay dates; the header row is bold and frozen. Sex is for the fairness report only. */
+export async function downloadReportXlsx(rows: ReportRow[], fileName: string) {
+  const { default: writeExcelFile } = await import('write-excel-file/browser')
+  type Cell = { value: string | number | boolean | Date | null; type?: typeof String | typeof Number | typeof Date; format?: string; fontWeight?: 'bold'; wrap?: boolean } | null
+  const cols: [string, number, (r: ReportRow) => Cell][] = [
+    ['Rank', 7, (r) => num(r.rank)],
+    ['Closeness', 10, (r) => num(r.closeness, '0.0000')],
+    ['Recommended', 13, (r) => txt(r.recommended == null ? null : r.recommended ? 'yes' : 'no')],
+    ['Student no.', 14, (r) => txt(r.student_number)],
+    ['Name', 28, (r) => txt(r.full_name)],
+    ['Sex', 8, (r) => txt(r.sex)],
+    ['Barangay', 18, (r) => txt(r.barangay)],
+    ['Course', 34, (r) => txt(r.course)],
+    ['Year level', 10, (r) => num(r.year_level)],
+    ['Status', 16, (r) => txt(STATUS_LABEL[r.status] ?? r.status)],
+    ['Exam', 10, (r) => txt(r.exam_result)],
+    ['Category', 14, (r) => txt(r.category)],
+    ['Income per person (PHP)', 22, (r) => num(r.per_capita_income, '#,##0.00')],
+    ['SES index', 10, (r) => num(r.ses_index, '0.00')],
+    ['Household size', 14, (r) => num(r.household_size)],
+    ['GWA (%)', 9, (r) => num(r.gwa, '0.00')],
+    ['Allowance (PHP)', 16, (r) => num(r.pay_tier_amount, '#,##0')],
+    ['Flags', 22, (r) => txt((r.flags ?? []).map((f) => f.code).join(' '))],
+    ['Interview', 18, (r) => date(r.interview_at)],
+    ['Interview status', 16, (r) => txt(r.interview_status)],
+    ['Decided', 18, (r) => date(r.decided_at)],
+    ['Override', 9, (r) => txt(r.decision_override == null ? null : r.decision_override ? 'yes' : 'no')],
+    ['Decision reason', 40, (r) => ({ value: r.decision_reason ?? null, type: String, wrap: true })],
+    ['Submitted', 18, (r) => date(r.submitted_at)],
+  ]
+  function txt(v: unknown): Cell { return v == null || v === '' ? null : { value: String(v), type: String } }
+  function num(v: unknown, format?: string): Cell { return v == null || v === '' || Number.isNaN(Number(v)) ? null : { value: Number(v), type: Number, ...(format ? { format } : {}) } }
+  function date(v: string | null): Cell { return v ? { value: new Date(v), type: Date, format: 'mmm d, yyyy h:mm AM/PM' } : null }
+  const sheet = [cols.map(([h]) => ({ value: h, fontWeight: 'bold' as const })), ...rows.map((r) => cols.map(([, , f]) => f(r)))]
+  await writeExcelFile(sheet as never, { columns: cols.map(([, width]) => ({ width })), sheet: 'Report', stickyRowsCount: 1 } as never).toFile(fileName)
+}
+
 export function download(name: string, text: string, type = 'text/csv;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([text], { type }))
   const a = document.createElement('a')

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LoadMore, useLazyCount } from '../../components/Skeleton'
 import { Link } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
-import { download, type ReportRow, reportCsv, STATUS_LABEL } from '../../lib/report'
+import { downloadReportXlsx, type ReportRow, STATUS_LABEL } from '../../lib/report'
 import { supabase } from '../../lib/supabase'
 
 const peso = (n: number | null) => (n == null ? '—' : `PHP ${Math.round(Number(n)).toLocaleString()}`)
@@ -17,6 +17,7 @@ export function Reports() {
   const [rows, setRows] = useState<ReportRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'summary' | 'list'>('summary')
+  const [xlsxBusy, setXlsxBusy] = useState(false)
   const [view, setView] = useState<'ranked' | 'all'>('ranked')
   const cycleId = cycle?.id
 
@@ -62,7 +63,9 @@ export function Reports() {
           <p>{cycle.school_year} · {cycle.term} · {cycle.slots} slots · printed {new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })}</p>
         </div>
         <div className="actions no-print" style={{ marginTop: 0 }}>
-          <button className="btn btn-plain" disabled={!rows?.length} onClick={() => download(`scholarship-report-${cycle.school_year}-${stamp}.csv`, reportCsv(all))}>Export to Excel (CSV)</button>
+          <button className="btn btn-plain" aria-busy={xlsxBusy} disabled={!rows?.length || xlsxBusy}
+            onClick={async () => { setXlsxBusy(true); try { await downloadReportXlsx(all, `scholarship-report-${cycle.school_year}-${stamp}.xlsx`) } finally { setXlsxBusy(false) } }}>
+            {xlsxBusy ? 'Preparing…' : 'Download Excel (.xlsx)'}</button>
           <button className="btn" disabled={!rows?.length} onClick={() => window.print()}>Print / save as PDF</button>
         </div>
       </div>
