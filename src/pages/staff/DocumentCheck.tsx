@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { SkeletonPage } from '../../components/Skeleton'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useStaff } from '../../components/StaffLayout'
@@ -55,6 +55,8 @@ export function DocumentCheck() {
   const [ocrBusy, setOcrBusy] = useState(false)
   const [ocrMsg, setOcrMsg] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  const [fieldsLoaded, setFieldsLoaded] = useState<string | null>(null)
+  const autoTried = useRef<string | null>(null)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,7 +79,7 @@ export function DocumentCheck() {
       const c = await supabase.from('document_checks').select('id,reviewer_decision,reviewer_note,reviewed_at,outcome,risk_score,reasons,layers').eq('document_id', id).order('id', { ascending: false })
       if (live) setChecks((c.data as Check[]) ?? [])
       const f = await supabase.from('extracted_fields').select('field,value,confidence,matches_form').eq('document_id', id).order('id')
-      if (live) setRead((f.data as ReadField[]) ?? [])
+      if (live) { setRead((f.data as ReadField[]) ?? []); setFieldsLoaded(d.id) }
       if (d.sha256) {
         // layer 3 (reuse): the same image uploaded by a different application
         const r = await supabase.from('documents').select('id', { count: 'exact', head: true }).eq('sha256', d.sha256).neq('application_id', d.application_id)
@@ -103,6 +105,16 @@ export function DocumentCheck() {
     refreshCounts()
     setTick((t) => t + 1)
   }
+
+  // read the document automatically the first time it is opened (owner, Nov 25); "Read again" stays for a retry
+  useEffect(() => {
+    if (!doc || fieldsLoaded !== doc.id || doc.type_code === 'photo_2x2' || read.length > 0) return
+    if (!['pending', 'review'].includes(doc.verification_status)) return   // only documents still waiting for a check
+    if (autoTried.current === doc.id) return
+    autoTried.current = doc.id
+    runOcr()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, fieldsLoaded, read.length])
 
   async function decide(decision: 'accepted' | 'reupload' | 'rejected') {
     if (!doc) return
@@ -164,7 +176,7 @@ export function DocumentCheck() {
             {doc.type_code === 'photo_2x2' ? (
               <p className="muted" style={{ margin: 0 }}>Pictures are not read by OCR; check them by eye.</p>
             ) : read.length === 0 ? (
-              <p className="muted" style={{ marginTop: 0 }}>Not read yet.</p>
+              <p className="muted" style={{ marginTop: 0 }}>{ocrBusy ? 'Reading the document automatically…' : 'Not read yet.'}</p>
             ) : (
               <table className="table ocr-table">
                 <thead><tr><th>Field</th><th>Read</th><th className="num">Sure</th><th title="Matches the form" aria-label="Matches the form">✓</th></tr></thead>
