@@ -100,6 +100,7 @@ export function describe(r: LogRow, n: Names): { text: string; sub?: string } {
     case 'ml.export_labels': return { text: 'Exported the staff labels for retraining' }
     case 'account.role': return { text: `Changed the role of ${person}`, sub: Object.entries(p).map(([k, v]) => `${words(k)}: ${words(v)}`).join(' · ') }
     case 'account.cleanup_unconfirmed': return { text: 'Removed an account whose email was never confirmed' }
+    case 'account.removed_mistake': return { text: 'Removed an account created by mistake', sub: reason }
     case 'duplicate.flag': return { text: `Flagged a possible duplicate account (${person})`, sub: reason }
     case 'duplicate.merge': return { text: `Kept ${person} and closed the duplicate account`, sub: reason }
     case 'duplicate.not_duplicate': return { text: 'Decided two similar accounts are different people', sub: reason }
